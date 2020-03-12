@@ -132,7 +132,9 @@ impl fmt::Display for Error {
     }
 }
 
-pub(crate) struct Deserializer<'b> {
+/// Deserializer will parse serde-json-wasm flavored JSON into a
+/// serde-annotated struct
+pub struct Deserializer<'b> {
     slice: &'b [u8],
     index: usize,
 }

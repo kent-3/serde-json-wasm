@@ -52,7 +52,9 @@ impl fmt::Display for Error {
     }
 }
 
-pub(crate) struct Serializer {
+/// Serializer implements serde::ser::Serializer and allows us to serialize a
+/// serde struct into JSON
+pub struct Serializer {
     buf: Vec<u8>,
 }
 
@@ -345,7 +347,9 @@ impl ser::Error for Error {
     }
 }
 
-pub(crate) enum Unreachable {}
+/// Unreachable is a placeholder for features that are not supported
+/// (and should be unreachable, unless you use unsupported serde flags)
+pub enum Unreachable {}
 
 impl ser::SerializeTupleStruct for Unreachable {
     type Ok = ();

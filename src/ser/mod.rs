@@ -58,9 +58,14 @@ pub struct Serializer {
     buf: Vec<u8>,
 }
 
+/// Number of bytes reserved by default for the output JSON
+static INITIAL_CAPACITY: usize = 1024;
+
 impl Serializer {
     fn new() -> Self {
-        Serializer { buf: Vec::new() }
+        Serializer {
+            buf: Vec::with_capacity(INITIAL_CAPACITY),
+        }
     }
 }
 

@@ -201,7 +201,28 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
         self.buf.push(b'"');
-        self.buf.extend_from_slice(v.as_bytes());
+
+        // Do escaping according to "6. MUST represent all strings (including object member names) in their minimal-length UTF-8 encoding":
+        // https://gibson042.github.io/canonicaljson-spec/
+
+        let mut buf = [0u8; 4]; // a char is up to 4 bytes long
+        for c in v.chars() {
+            match c {
+                '\\' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'\\');
+                }
+                '"' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'"');
+                }
+                _ => {
+                    let encoded = c.encode_utf8(&mut buf as &mut [u8]);
+                    self.buf.extend_from_slice(encoded.as_bytes());
+                }
+            }
+        }
+
         self.buf.push(b'"');
         Ok(())
     }
@@ -453,6 +474,11 @@ mod tests {
     #[test]
     fn str() {
         assert_eq!(&*crate::to_string("hello").unwrap(), r#""hello""#);
+        assert_eq!(&*crate::to_string("").unwrap(), r#""""#);
+
+        // " and \ must be escaped
+        assert_eq!(&*crate::to_string("foo\"bar").unwrap(), r#""foo\"bar""#);
+        assert_eq!(&*crate::to_string("foo\\bar").unwrap(), r#""foo\\bar""#);
     }
 
     #[test]

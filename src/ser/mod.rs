@@ -216,8 +216,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     fn serialize_str(self, v: &str) -> Result<Self::Ok> {
         self.buf.push(b'"');
 
-        // Do escaping according to "6. MUST represent all strings (including object member names) in their minimal-length UTF-8 encoding":
-        // https://gibson042.github.io/canonicaljson-spec/
+        // Do escaping according to "6. MUST represent all strings (including object member names) in
+        // their minimal-length UTF-8 encoding": https://gibson042.github.io/canonicaljson-spec/
+        //
+        // We don't need to escape lone surrogates because they are not valid unicode code points, even
+        // if they can exist in JSON or JavaScript strings. As a result, lone surrogates
+        // cannot exist in a Rust String. If they do, the bug is in the String constructor.
+        // An excellent explanation is available at https://www.youtube.com/watch?v=HhIEDWmQS3w
 
         let mut buf = [0u8; 4]; // a char is up to 4 bytes long
         for c in v.chars() {
@@ -524,7 +529,7 @@ mod tests {
         assert_eq!(&*crate::to_string("৬").unwrap(), r#""৬""#);
         assert_eq!(&*crate::to_string("\u{A0}").unwrap(), r#"" ""#); // non-breaking space
         assert_eq!(&*crate::to_string("ℝ").unwrap(), r#""ℝ""#); // 3 byte character
-        assert_eq!(&*crate::to_string("💣").unwrap(), r#""💣""#); // 4 byte character
+        assert_eq!(&*crate::to_string("💣").unwrap(), r#""💣""#); // surregate pair
 
         // " and \ must be escaped
         assert_eq!(&*crate::to_string("foo\"bar").unwrap(), r#""foo\"bar""#);

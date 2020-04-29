@@ -216,6 +216,26 @@ impl<'a> ser::Serializer for &'a mut Serializer {
                     self.buf.push(b'\\');
                     self.buf.push(b'"');
                 }
+                '\u{0008}' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'b');
+                }
+                '\u{0009}' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b't');
+                }
+                '\u{000A}' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'n');
+                }
+                '\u{000C}' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'f');
+                }
+                '\u{000D}' => {
+                    self.buf.push(b'\\');
+                    self.buf.push(b'r');
+                }
                 _ => {
                     let encoded = c.encode_utf8(&mut buf as &mut [u8]);
                     self.buf.extend_from_slice(encoded.as_bytes());
@@ -479,6 +499,13 @@ mod tests {
         // " and \ must be escaped
         assert_eq!(&*crate::to_string("foo\"bar").unwrap(), r#""foo\"bar""#);
         assert_eq!(&*crate::to_string("foo\\bar").unwrap(), r#""foo\\bar""#);
+
+        // \b, \t, \n, \f, \r must be escaped in their two-character escaping
+        assert_eq!(&*crate::to_string(" \u{0008} ").unwrap(), r#"" \b ""#);
+        assert_eq!(&*crate::to_string(" \u{0009} ").unwrap(), r#"" \t ""#);
+        assert_eq!(&*crate::to_string(" \u{000A} ").unwrap(), r#"" \n ""#);
+        assert_eq!(&*crate::to_string(" \u{000C} ").unwrap(), r#"" \f ""#);
+        assert_eq!(&*crate::to_string(" \u{000D} ").unwrap(), r#"" \r ""#);
     }
 
     #[test]

@@ -219,12 +219,15 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         // Do escaping according to "6. MUST represent all strings (including object member names) in
         // their minimal-length UTF-8 encoding": https://gibson042.github.io/canonicaljson-spec/
         //
-        // We don't need to escape lone surrogates because they are not valid unicode code points, even
-        // if they can exist in JSON or JavaScript strings. As a result, lone surrogates
+        // We don't need to escape lone surrogates because surrogate pairs do not exist in valid UTF-8,
+        // even if they can exist in JSON or JavaScript strings (UCS-2 based). As a result, lone surrogates
         // cannot exist in a Rust String. If they do, the bug is in the String constructor.
         // An excellent explanation is available at https://www.youtube.com/watch?v=HhIEDWmQS3w
 
-        let mut buf = [0u8; 4]; // a char is up to 4 bytes long
+        // Temporary storage for encoded a single char.
+        // A char is up to 4 bytes long wehn encoded to UTF-8.
+        let mut encoding_tmp = [0u8; 4];
+
         for c in v.chars() {
             match c {
                 '\\' => {
@@ -260,12 +263,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
                     self.buf.push(b'u');
                     self.buf.push(b'0');
                     self.buf.push(b'0');
-                    let (b1, b2) = hex(c as u8);
-                    self.buf.push(b1);
-                    self.buf.push(b2);
+                    let (hex1, hex2) = hex(c as u8);
+                    self.buf.push(hex1);
+                    self.buf.push(hex2);
                 }
                 _ => {
-                    let encoded = c.encode_utf8(&mut buf as &mut [u8]);
+                    let encoded = c.encode_utf8(&mut encoding_tmp as &mut [u8]);
                     self.buf.extend_from_slice(encoded.as_bytes());
                 }
             }
@@ -529,7 +532,7 @@ mod tests {
         assert_eq!(&*crate::to_string("৬").unwrap(), r#""৬""#);
         assert_eq!(&*crate::to_string("\u{A0}").unwrap(), r#"" ""#); // non-breaking space
         assert_eq!(&*crate::to_string("ℝ").unwrap(), r#""ℝ""#); // 3 byte character
-        assert_eq!(&*crate::to_string("💣").unwrap(), r#""💣""#); // surregate pair
+        assert_eq!(&*crate::to_string("💣").unwrap(), r#""💣""#); // 4 byte character
 
         // " and \ must be escaped
         assert_eq!(&*crate::to_string("foo\"bar").unwrap(), r#""foo\"bar""#);

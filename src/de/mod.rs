@@ -674,6 +674,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::from_str;
     use serde_derive::Deserialize;
 
     #[derive(Debug, Deserialize, PartialEq)]
@@ -687,39 +688,104 @@ mod tests {
     }
 
     #[test]
+    fn parse_whitespace() {
+        assert_eq!(from_str(" true"), Ok(true));
+        assert_eq!(from_str("\ttrue"), Ok(true));
+        assert_eq!(from_str("\ntrue"), Ok(true));
+        assert_eq!(from_str("\rtrue"), Ok(true));
+        assert_eq!(from_str("\n\rtrue"), Ok(true));
+        assert_eq!(from_str("\r\ntrue"), Ok(true));
+        assert_eq!(from_str("true "), Ok(true));
+        assert_eq!(from_str("true\t"), Ok(true));
+        assert_eq!(from_str("true\n"), Ok(true));
+        assert_eq!(from_str("true\r"), Ok(true));
+        assert_eq!(from_str("true\n\r"), Ok(true));
+        assert_eq!(from_str("true\r\n"), Ok(true));
+
+        assert_eq!(from_str("[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str(" [4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("\t[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("\n[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("\r[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("\n\r[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("\r\n[4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[ 4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[\t4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[\n4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[\r4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[\n\r4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[\r\n4,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4 ,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4\t,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4\n,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4\r,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4\n\r,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4\r\n,5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4, 5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,\t5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,\n5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,\r5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,\n\r5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,\r\n5]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5 ]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5\t]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5\n]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5\r]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5\n\r]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5\r\n]"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5] "), Ok([4, 5]));
+        assert_eq!(from_str("[4,5]\t"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5]\n"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5]\r"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5]\n\r"), Ok([4, 5]));
+        assert_eq!(from_str("[4,5]\r\n"), Ok([4, 5]));
+    }
+
+    #[test]
     fn array() {
-        assert_eq!(crate::from_str::<[i32; 0]>("[]"), Ok([]));
-        assert_eq!(crate::from_str("[0, 1, 2]"), Ok([0, 1, 2]));
+        assert_eq!(from_str::<[i32; 0]>("[]"), Ok([]));
+        assert_eq!(from_str("[0, 1, 2]"), Ok([0, 1, 2]));
 
         // errors
-        assert!(crate::from_str::<[i32; 2]>("[0, 1,]").is_err());
+        assert!(from_str::<[i32; 2]>("[0, 1,]").is_err());
     }
 
     #[test]
     fn bool() {
-        assert_eq!(crate::from_str("true"), Ok(true));
-        assert_eq!(crate::from_str(" true"), Ok(true));
-        assert_eq!(crate::from_str("true "), Ok(true));
+        assert_eq!(from_str("true"), Ok(true));
+        assert_eq!(from_str(" true"), Ok(true));
+        assert_eq!(from_str("true "), Ok(true));
 
-        assert_eq!(crate::from_str("false"), Ok(false));
-        assert_eq!(crate::from_str(" false"), Ok(false));
-        assert_eq!(crate::from_str("false "), Ok(false));
+        assert_eq!(from_str("false"), Ok(false));
+        assert_eq!(from_str(" false"), Ok(false));
+        assert_eq!(from_str("false "), Ok(false));
 
         // errors
-        assert!(crate::from_str::<bool>("true false").is_err());
-        assert!(crate::from_str::<bool>("tru").is_err());
+        assert!(from_str::<bool>("true false").is_err());
+        assert!(from_str::<bool>("tru").is_err());
     }
 
     #[test]
     fn enum_clike() {
-        assert_eq!(crate::from_str(r#" "boolean" "#), Ok(Type::Boolean));
-        assert_eq!(crate::from_str(r#" "number" "#), Ok(Type::Number));
-        assert_eq!(crate::from_str(r#" "thing" "#), Ok(Type::Thing));
+        assert_eq!(from_str(r#" "boolean" "#), Ok(Type::Boolean));
+        assert_eq!(from_str(r#" "number" "#), Ok(Type::Number));
+        assert_eq!(from_str(r#" "thing" "#), Ok(Type::Thing));
     }
 
     #[test]
     fn str() {
-        assert_eq!(crate::from_str(r#" "hello" "#), Ok("hello"));
+        assert_eq!(from_str(r#" "hello" "#), Ok("hello"));
+        assert_eq!(from_str(r#" "" "#), Ok(""));
+        assert_eq!(from_str(r#" " " "#), Ok(" "));
+        assert_eq!(from_str(r#" "👏" "#), Ok("👏"));
+    }
+
+    #[test]
+    fn string() {
+        assert_eq!(from_str(r#" "hello" "#), Ok(String::from("hello")));
+        assert_eq!(from_str(r#" "" "#), Ok(String::from("")));
+        assert_eq!(from_str(r#" " " "#), Ok(String::from(" ")));
+        assert_eq!(from_str(r#" "👏" "#), Ok(String::from("👏")));
     }
 
     #[test]
@@ -729,11 +795,8 @@ mod tests {
             led: bool,
         }
 
-        assert_eq!(crate::from_str(r#"{ "led": true }"#), Ok(Led { led: true }));
-        assert_eq!(
-            crate::from_str(r#"{ "led": false }"#),
-            Ok(Led { led: false })
-        );
+        assert_eq!(from_str(r#"{ "led": true }"#), Ok(Led { led: true }));
+        assert_eq!(from_str(r#"{ "led": false }"#), Ok(Led { led: false }));
     }
 
     #[test]
@@ -744,23 +807,23 @@ mod tests {
         }
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": -17 }"#),
+            from_str(r#"{ "temperature": -17 }"#),
             Ok(Temperature { temperature: -17 })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": -0 }"#),
+            from_str(r#"{ "temperature": -0 }"#),
             Ok(Temperature { temperature: -0 })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 0 }"#),
+            from_str(r#"{ "temperature": 0 }"#),
             Ok(Temperature { temperature: 0 })
         );
 
         // out of range
-        assert!(crate::from_str::<Temperature>(r#"{ "temperature": 128 }"#).is_err());
-        assert!(crate::from_str::<Temperature>(r#"{ "temperature": -129 }"#).is_err());
+        assert!(from_str::<Temperature>(r#"{ "temperature": 128 }"#).is_err());
+        assert!(from_str::<Temperature>(r#"{ "temperature": -129 }"#).is_err());
     }
 
     #[test]
@@ -772,18 +835,18 @@ mod tests {
         }
 
         assert_eq!(
-            crate::from_str(r#"{ "description": "An ambient temperature sensor" }"#),
+            from_str(r#"{ "description": "An ambient temperature sensor" }"#),
             Ok(Property {
                 description: Some("An ambient temperature sensor"),
             })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "description": null }"#),
+            from_str(r#"{ "description": null }"#),
             Ok(Property { description: None })
         );
 
-        assert_eq!(crate::from_str(r#"{}"#), Ok(Property { description: None }));
+        assert_eq!(from_str(r#"{}"#), Ok(Property { description: None }));
     }
 
     #[test]
@@ -794,18 +857,18 @@ mod tests {
         }
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 20 }"#),
+            from_str(r#"{ "temperature": 20 }"#),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 0 }"#),
+            from_str(r#"{ "temperature": 0 }"#),
             Ok(Temperature { temperature: 0 })
         );
 
         // out of range
-        assert!(crate::from_str::<Temperature>(r#"{ "temperature": 256 }"#).is_err());
-        assert!(crate::from_str::<Temperature>(r#"{ "temperature": -1 }"#).is_err());
+        assert!(from_str::<Temperature>(r#"{ "temperature": 256 }"#).is_err());
+        assert!(from_str::<Temperature>(r#"{ "temperature": -1 }"#).is_err());
     }
 
     #[test]
@@ -813,16 +876,16 @@ mod tests {
         #[derive(Debug, Deserialize, PartialEq)]
         struct Xy(i8, i8);
 
-        assert_eq!(crate::from_str(r#"[10, 20]"#), Ok(Xy(10, 20)));
-        assert_eq!(crate::from_str(r#"[10, -20]"#), Ok(Xy(10, -20)));
+        assert_eq!(from_str(r#"[10, 20]"#), Ok(Xy(10, 20)));
+        assert_eq!(from_str(r#"[10, -20]"#), Ok(Xy(10, -20)));
 
         // wrong number of args
-        match crate::from_str::<Xy>(r#"[10]"#) {
+        match from_str::<Xy>(r#"[10]"#) {
             Err(super::Error::Custom(_)) => {}
             _ => panic!("expect custom error"),
         }
         assert_eq!(
-            crate::from_str::<Xy>(r#"[10, 20, 30]"#),
+            from_str::<Xy>(r#"[10, 20, 30]"#),
             Err(crate::de::Error::TrailingCharacters)
         );
     }
@@ -835,46 +898,44 @@ mod tests {
         }
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 20, "high": 80, "low": -10, "updated": true }"#),
+            from_str(r#"{ "temperature": 20, "high": 80, "low": -10, "updated": true }"#),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str(
-                r#"{ "temperature": 20, "conditions": "windy", "forecast": "cloudy" }"#
-            ),
+            from_str(r#"{ "temperature": 20, "conditions": "windy", "forecast": "cloudy" }"#),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 20, "hourly_conditions": ["windy", "rainy"] }"#),
+            from_str(r#"{ "temperature": 20, "hourly_conditions": ["windy", "rainy"] }"#),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str(
+            from_str(
                 r#"{ "temperature": 20, "source": { "station": "dock", "sensors": ["front", "back"] } }"#
             ),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str(r#"{ "temperature": 20, "invalid": this-is-ignored }"#),
+            from_str(r#"{ "temperature": 20, "invalid": this-is-ignored }"#),
             Ok(Temperature { temperature: 20 })
         );
 
         assert_eq!(
-            crate::from_str::<Temperature>(r#"{ "temperature": 20, "broken": }"#),
+            from_str::<Temperature>(r#"{ "temperature": 20, "broken": }"#),
             Err(crate::de::Error::ExpectedSomeValue)
         );
 
         assert_eq!(
-            crate::from_str::<Temperature>(r#"{ "temperature": 20, "broken": [ }"#),
+            from_str::<Temperature>(r#"{ "temperature": 20, "broken": [ }"#),
             Err(crate::de::Error::ExpectedSomeValue)
         );
 
         assert_eq!(
-            crate::from_str::<Temperature>(r#"{ "temperature": 20, "broken": ] }"#),
+            from_str::<Temperature>(r#"{ "temperature": 20, "broken": ] }"#),
             Err(crate::de::Error::ExpectedSomeValue)
         );
     }
@@ -889,7 +950,7 @@ mod tests {
 
     #[test]
     fn newtypes() {
-        let c: NewtypeDemo = crate::from_str(r#"{"address": "johnny"}"#).unwrap();
+        let c: NewtypeDemo = from_str(r#"{"address": "johnny"}"#).unwrap();
         assert_eq!(Address("johnny".to_string()), c.address);
     }
 
@@ -911,7 +972,7 @@ mod tests {
             pub name: Option<String>,
         }
 
-        let m: Msg = crate::from_str(
+        let m: Msg = from_str(
             r#"{
           "name": "one"
         }"#,
@@ -924,7 +985,7 @@ mod tests {
             }
         );
 
-        let o: OptIn = crate::from_str(
+        let o: OptIn = from_str(
             r#"{
           "name": "two"
         }"#,
@@ -937,7 +998,7 @@ mod tests {
             }
         );
 
-        let res: Response = crate::from_str(
+        let res: Response = from_str(
             r#"{
           "log": "my log",
           "messages": [{"name": "one"}]
@@ -954,7 +1015,7 @@ mod tests {
             }
         );
 
-        let res: Response = crate::from_str(r#"{"log": null,"messages": []}"#).expect("fud");
+        let res: Response = from_str(r#"{"log": null,"messages": []}"#).expect("fud");
         assert_eq!(
             res,
             Response {
@@ -985,7 +1046,7 @@ mod tests {
             pub amount: Option<String>,
         }
 
-        let res: MyResult = crate::from_str(
+        let res: MyResult = from_str(
             r#"{
           "ok": {
             "log": "hello",
@@ -1008,7 +1069,7 @@ mod tests {
             })
         );
 
-        let res: MyResult = crate::from_str(
+        let res: MyResult = from_str(
             r#"{
           "ok": {
             "log": "hello",
@@ -1025,7 +1086,7 @@ mod tests {
             })
         );
 
-        let res: MyResult = crate::from_str(
+        let res: MyResult = from_str(
             r#"{
           "ok": {
             "log": null,
@@ -1076,7 +1137,7 @@ mod tests {
         }
 
         assert_eq!(
-            crate::from_str::<Thing<'_>>(
+            from_str::<Thing<'_>>(
                 r#"
 {
   "type": "thing",

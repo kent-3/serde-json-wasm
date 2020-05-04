@@ -60,7 +60,7 @@ pub(crate) struct StructVariantAccess<'a, 'b> {
 
 impl<'a, 'b> StructVariantAccess<'a, 'b> {
     pub fn new(de: &'a mut Deserializer<'b>) -> Self {
-        StructVariantAccess { de: de }
+        StructVariantAccess { de }
     }
 }
 
@@ -120,12 +120,12 @@ impl<'a, 'de> de::VariantAccess<'de> for StructVariantAccess<'a, 'de> {
             .de
             .parse_whitespace()
             .ok_or(Error::EofWhileParsingValue)?
-            {
-                b'}' => {
-                    self.de.eat_char();
-                    Ok(value)
-                }
-                _ => Err(Error::ExpectedSomeValue),
+        {
+            b'}' => {
+                self.de.eat_char();
+                Ok(value)
             }
+            _ => Err(Error::ExpectedSomeValue),
+        }
     }
 }

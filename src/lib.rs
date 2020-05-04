@@ -24,7 +24,7 @@
 //! - Supports serialization (compact format only) of:
 //!   - `bool`
 //!   - Integers
-//!   - `str` (\*\*)
+//!   - `str`
 //!   - `Option`
 //!   - Arrays
 //!   - Tuples
@@ -33,8 +33,6 @@
 //!
 //! (\*) Deserialization of strings ignores escaped sequences. Escaped sequences might be supported
 //! in the future using a different Serializer as this operation is not zero copy.
-//!
-//! (\*\*) Serialization of strings doesn't escape stuff. This simply has not been implemented yet.
 //!
 //! # Planned features
 //!

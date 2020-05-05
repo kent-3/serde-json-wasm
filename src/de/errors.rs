@@ -34,6 +34,9 @@ pub enum Error {
     /// Expected this character to start a JSON value.
     ExpectedSomeValue,
 
+    /// Invalid escape sequence
+    InvalidEscape,
+
     /// Invalid number.
     InvalidNumber,
 
@@ -104,6 +107,7 @@ impl fmt::Display for Error {
                      `null`."
                 }
                 Error::ExpectedSomeValue => "Expected this character to start a JSON value.",
+                Error::InvalidEscape => "Invalid escape sequence.",
                 Error::InvalidNumber => "Invalid number.",
                 Error::InvalidType => "Invalid type",
                 Error::InvalidUnicodeCodePoint => "Invalid unicode code point.",

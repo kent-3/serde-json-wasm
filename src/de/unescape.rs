@@ -72,6 +72,8 @@ pub(crate) fn unescape(source: &[u8]) -> Result<String> {
                 _ => return Err(Error::InvalidEscape),
             }
         } else {
+            // Default case, not in escape sequence
+
             if *byte == b'\\' {
                 open = true;
             } else {
@@ -80,7 +82,7 @@ pub(crate) fn unescape(source: &[u8]) -> Result<String> {
         }
     }
 
-    return String::from_utf8(out).map_err(|_| Error::InvalidUnicodeCodePoint);
+    String::from_utf8(out).map_err(|_| Error::InvalidUnicodeCodePoint)
 }
 
 /// Returns a 16 bit value between 0x0000 and 0xFFFF, i.e. a codepoint

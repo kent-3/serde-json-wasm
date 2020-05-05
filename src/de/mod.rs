@@ -682,23 +682,23 @@ mod tests {
         assert_eq!(from_str(r#" " " "#), Ok(" ".to_string()));
         assert_eq!(from_str(r#" "👏" "#), Ok("👏".to_string()));
 
-        // no unescaping is done (as documented as a known issue in lib.rs)
-        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\\tlo".to_string()));
-        assert_eq!(from_str(r#" "hello \\" "#), Ok("hello \\\\".to_string()));
+        // Unescapes things
+        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\tlo".to_string()));
+        assert_eq!(from_str(r#" "hel\\lo" "#), Ok("hel\\lo".to_string()));
 
         // escaped " in the string content
-        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo\"bar"#.to_string()));
-        assert_eq!(from_str(r#" "foo\\\"ba" "#), Ok(r#"foo\\\"ba"#.to_string()));
-        assert_eq!(from_str(r#" "foo\"\"ba" "#), Ok(r#"foo\"\"ba"#.to_string()));
-        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#"\"bar"#.to_string()));
-        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo\""#.to_string()));
-        assert_eq!(from_str(r#" "\"" "#), Ok(r#"\""#.to_string()));
+        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo"bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\\\"ba" "#), Ok(r#"foo\"ba"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"\"ba" "#), Ok(r#"foo""ba"#.to_string()));
+        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#""bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo""#.to_string()));
+        assert_eq!(from_str(r#" "\"" "#), Ok(r#"""#.to_string()));
 
         // non-escaped " preceded by backslashes
-        assert_eq!(from_str(r#" "fooooo\\" "#), Ok(r#"fooooo\\"#.to_string()));
-        assert_eq!(from_str(r#" "fooo\\\\" "#), Ok(r#"fooo\\\\"#.to_string()));
-        assert_eq!(from_str(r#" "fo\\\\\\" "#), Ok(r#"fo\\\\\\"#.to_string()));
-        assert_eq!(from_str(r#" "\\\\\\\\" "#), Ok(r#"\\\\\\\\"#.to_string()));
+        assert_eq!(from_str(r#" "fooooo\\" "#), Ok(r#"fooooo\"#.to_string()));
+        assert_eq!(from_str(r#" "fooo\\\\" "#), Ok(r#"fooo\\"#.to_string()));
+        assert_eq!(from_str(r#" "fo\\\\\\" "#), Ok(r#"fo\\\"#.to_string()));
+        assert_eq!(from_str(r#" "\\\\\\\\" "#), Ok(r#"\\\\"#.to_string()));
     }
 
     #[test]

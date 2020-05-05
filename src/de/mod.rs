@@ -680,9 +680,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 }
 
 /// Deserializes an instance of type `T` from bytes of JSON text
-pub fn from_slice<'a, T>(v: &'a [u8]) -> Result<T>
+pub fn from_slice<T>(v: &[u8]) -> Result<T>
 where
-    T: de::Deserialize<'a>,
+    T: de::DeserializeOwned,
 {
     let mut de = Deserializer::new(v);
     let value = de::Deserialize::deserialize(&mut de)?;
@@ -692,9 +692,9 @@ where
 }
 
 /// Deserializes an instance of type T from a string of JSON text
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+pub fn from_str<T>(s: &str) -> Result<T>
 where
-    T: de::Deserialize<'a>,
+    T: de::DeserializeOwned,
 {
     from_slice(s.as_bytes())
 }
@@ -800,43 +800,29 @@ mod tests {
     }
 
     #[test]
-    fn str() {
-        // simple
-        assert_eq!(from_str(r#" "hello" "#), Ok("hello"));
-        assert_eq!(from_str(r#" "" "#), Ok(""));
-        assert_eq!(from_str(r#" " " "#), Ok(" "));
-        assert_eq!(from_str(r#" "👏" "#), Ok("👏"));
+    fn string() {
+        assert_eq!(from_str(r#" "hello" "#), Ok("hello".to_string()));
+        assert_eq!(from_str(r#" "" "#), Ok("".to_string()));
+        assert_eq!(from_str(r#" " " "#), Ok(" ".to_string()));
+        assert_eq!(from_str(r#" "👏" "#), Ok("👏".to_string()));
 
         // no unescaping is done (as documented as a known issue in lib.rs)
-        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\\tlo"));
-        assert_eq!(from_str(r#" "hello \\" "#), Ok("hello \\\\"));
+        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\\tlo".to_string()));
+        assert_eq!(from_str(r#" "hello \\" "#), Ok("hello \\\\".to_string()));
 
         // escaped " in the string content
-        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo\"bar"#));
-        assert_eq!(from_str(r#" "foo\\\"bar" "#), Ok(r#"foo\\\"bar"#));
-        assert_eq!(from_str(r#" "foo\"\"bar" "#), Ok(r#"foo\"\"bar"#));
-        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#"\"bar"#));
-        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo\""#));
-        assert_eq!(from_str(r#" "\"" "#), Ok(r#"\""#));
+        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo\"bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\\\"ba" "#), Ok(r#"foo\\\"ba"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"\"ba" "#), Ok(r#"foo\"\"ba"#.to_string()));
+        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#"\"bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo\""#.to_string()));
+        assert_eq!(from_str(r#" "\"" "#), Ok(r#"\""#.to_string()));
 
-        // non-excaped " preceded by backslashes
-        assert_eq!(from_str(r#" "foo bar\\" "#), Ok(r#"foo bar\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\" "#), Ok(r#"foo bar\\\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\\\" "#), Ok(r#"foo bar\\\\\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\\\\\" "#), Ok(r#"foo bar\\\\\\\\"#));
-        assert_eq!(from_str(r#" "\\" "#), Ok(r#"\\"#));
-    }
-
-    #[test]
-    fn string() {
-        assert_eq!(from_str(r#" "hello" "#), Ok(String::from("hello")));
-        assert_eq!(from_str(r#" "" "#), Ok(String::from("")));
-        assert_eq!(from_str(r#" " " "#), Ok(String::from(" ")));
-        assert_eq!(from_str(r#" "👏" "#), Ok(String::from("👏")));
-
-        // escaped " in the string content
-        // (note: no unescaping is performed, as documented as a known issue in lib.rs)
-        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(String::from(r#"foo\"bar"#)));
+        // non-escaped " preceded by backslashes
+        assert_eq!(from_str(r#" "fooooo\\" "#), Ok(r#"fooooo\\"#.to_string()));
+        assert_eq!(from_str(r#" "fooo\\\\" "#), Ok(r#"fooo\\\\"#.to_string()));
+        assert_eq!(from_str(r#" "fo\\\\\\" "#), Ok(r#"fo\\\\\\"#.to_string()));
+        assert_eq!(from_str(r#" "\\\\\\\\" "#), Ok(r#"\\\\\\\\"#.to_string()));
     }
 
     #[test]
@@ -880,15 +866,14 @@ mod tests {
     #[test]
     fn struct_option() {
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Property<'a> {
-            #[serde(borrow)]
-            description: Option<&'a str>,
+        struct Property {
+            description: Option<String>,
         }
 
         assert_eq!(
             from_str(r#"{ "description": "An ambient temperature sensor" }"#),
             Ok(Property {
-                description: Some("An ambient temperature sensor"),
+                description: Some("An ambient temperature sensor".to_string()),
             })
         );
 
@@ -1159,36 +1144,30 @@ mod tests {
     #[test]
     fn wot() {
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Thing<'a> {
-            #[serde(borrow)]
-            properties: Properties<'a>,
+        struct Thing {
+            properties: Properties,
             #[serde(rename = "type")]
             ty: Type,
         }
 
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Properties<'a> {
-            #[serde(borrow)]
-            temperature: Property<'a>,
-            #[serde(borrow)]
-            humidity: Property<'a>,
-            #[serde(borrow)]
-            led: Property<'a>,
+        struct Properties {
+            temperature: Property,
+            humidity: Property,
+            led: Property,
         }
 
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Property<'a> {
+        struct Property {
             #[serde(rename = "type")]
             ty: Type,
-            unit: Option<&'a str>,
-            #[serde(borrow)]
-            description: Option<&'a str>,
-            href: &'a str,
-            owned: Option<String>,
+            unit: Option<String>,
+            description: Option<String>,
+            href: String,
         }
 
         assert_eq!(
-            from_str::<Thing<'_>>(
+            from_str::<Thing>(
                 r#"
 {
   "type": "thing",
@@ -1197,21 +1176,18 @@ mod tests {
       "type": "number",
       "unit": "celsius",
       "description": "An ambient temperature sensor",
-      "href": "/properties/temperature",
-      "owned": "own temperature"
+      "href": "/properties/temperature"
     },
     "humidity": {
       "type": "number",
       "unit": "percent",
-      "href": "/properties/humidity",
-      "owned": null
+      "href": "/properties/humidity"
     },
     "led": {
       "type": "boolean",
       "unit": null,
       "description": "A red LED",
-      "href": "/properties/led",
-      "owned": "own led"
+      "href": "/properties/led"
     }
   }
 }
@@ -1221,24 +1197,21 @@ mod tests {
                 properties: Properties {
                     temperature: Property {
                         ty: Type::Number,
-                        unit: Some("celsius"),
-                        description: Some("An ambient temperature sensor"),
-                        href: "/properties/temperature",
-                        owned: Some("own temperature".to_string()),
+                        unit: Some("celsius".to_string()),
+                        description: Some("An ambient temperature sensor".to_string()),
+                        href: "/properties/temperature".to_string(),
                     },
                     humidity: Property {
                         ty: Type::Number,
-                        unit: Some("percent"),
+                        unit: Some("percent".to_string()),
                         description: None,
-                        href: "/properties/humidity",
-                        owned: None,
+                        href: "/properties/humidity".to_string(),
                     },
                     led: Property {
                         ty: Type::Boolean,
                         unit: None,
-                        description: Some("A red LED"),
-                        href: "/properties/led",
-                        owned: Some("own led".to_string()),
+                        description: Some("A red LED".to_string()),
+                        href: "/properties/led".to_string(),
                     },
                 },
                 ty: Type::Thing,

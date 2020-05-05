@@ -1,6 +1,6 @@
 //! Deserialize JSON data to a Rust data structure
 
-use std::{error, fmt, str::from_utf8};
+use std::{error, fmt};
 
 use serde::de::{self, Visitor};
 
@@ -132,6 +132,12 @@ impl fmt::Display for Error {
     }
 }
 
+fn unescape(source: &[u8]) -> Result<String> {
+    // TODO: implement unescaping
+    let string_data = source.to_vec();
+    return String::from_utf8(string_data).map_err(|_| Error::InvalidUnicodeCodePoint);
+}
+
 /// Deserializer will parse serde-json-wasm flavored JSON into a
 /// serde-annotated struct
 pub struct Deserializer<'b> {
@@ -219,7 +225,7 @@ impl<'a> Deserializer<'a> {
         }
     }
 
-    fn parse_str(&mut self) -> Result<&'a str> {
+    fn parse_string(&mut self) -> Result<String> {
         let start = self.index;
         loop {
             match self.peek() {
@@ -252,8 +258,7 @@ impl<'a> Deserializer<'a> {
                     } else {
                         let end = self.index;
                         self.eat_char();
-                        return from_utf8(&self.slice[start..end])
-                            .map_err(|_| Error::InvalidUnicodeCodePoint);
+                        return unescape(&self.slice[start..end]);
                     }
                 }
                 Some(_) => self.eat_char(),
@@ -477,15 +482,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let peek = self.parse_whitespace().ok_or(Error::EofWhileParsingValue)?;
-
-        match peek {
-            b'"' => {
-                self.eat_char();
-                visitor.visit_borrowed_str(self.parse_str()?)
-            }
-            _ => Err(Error::InvalidType),
-        }
+        self.deserialize_string(visitor)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -497,8 +494,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match peek {
             b'"' => {
                 self.eat_char();
-                let str = self.parse_str()?.to_string();
-                visitor.visit_string(str)
+                visitor.visit_string(self.parse_string()?)
             }
             _ => Err(Error::InvalidType),
         }

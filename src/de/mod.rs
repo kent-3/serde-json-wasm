@@ -1,136 +1,18 @@
 //! Deserialize JSON data to a Rust data structure
 
-use std::{error, fmt, str::from_utf8};
+mod enum_;
+mod errors;
+mod map;
+mod seq;
+mod unescape;
+
+pub use errors::{Error, Result};
 
 use serde::de::{self, Visitor};
 
 use self::enum_::{StructVariantAccess, UnitVariantAccess};
 use self::map::MapAccess;
 use self::seq::SeqAccess;
-
-mod enum_;
-mod map;
-mod seq;
-
-/// Deserialization result
-pub type Result<T> = core::result::Result<T, Error>;
-
-/// This type represents all possible errors that can occur when deserializing JSON data
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    /// EOF while parsing a list.
-    EofWhileParsingList,
-
-    /// EOF while parsing an object.
-    EofWhileParsingObject,
-
-    /// EOF while parsing a string.
-    EofWhileParsingString,
-
-    /// EOF while parsing a JSON value.
-    EofWhileParsingValue,
-
-    /// Expected this character to be a `':'`.
-    ExpectedColon,
-
-    /// Expected this character to be either a `','` or a `']'`.
-    ExpectedListCommaOrEnd,
-
-    /// Expected this character to be either a `','` or a `'}'`.
-    ExpectedObjectCommaOrEnd,
-
-    /// Expected to parse either a `true`, `false`, or a `null`.
-    ExpectedSomeIdent,
-
-    /// Expected this character to start a JSON value.
-    ExpectedSomeValue,
-
-    /// Invalid number.
-    InvalidNumber,
-
-    /// Invalid type
-    InvalidType,
-
-    /// Invalid unicode code point.
-    InvalidUnicodeCodePoint,
-
-    /// Object key is not a string.
-    KeyMustBeAString,
-
-    /// JSON has non-whitespace trailing characters after the value.
-    TrailingCharacters,
-
-    /// JSON has a comma after the last value in an array or map.
-    TrailingComma,
-
-    /// Custom error message from serde
-    Custom(String),
-
-    #[doc(hidden)]
-    __Extensible,
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        None
-    }
-
-    fn description(&self) -> &str {
-        "(use display)"
-    }
-}
-
-impl de::Error for Error {
-    fn custom<T>(msg: T) -> Self
-    where
-        T: fmt::Display,
-    {
-        Error::Custom(msg.to_string())
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Error::EofWhileParsingList => "EOF while parsing a list.",
-                Error::EofWhileParsingObject => "EOF while parsing an object.",
-                Error::EofWhileParsingString => "EOF while parsing a string.",
-                Error::EofWhileParsingValue => "EOF while parsing a JSON value.",
-                Error::ExpectedColon => "Expected this character to be a `':'`.",
-                Error::ExpectedListCommaOrEnd => {
-                    "Expected this character to be either a `','` or\
-                     a \
-                     `']'`."
-                }
-                Error::ExpectedObjectCommaOrEnd => {
-                    "Expected this character to be either a `','` \
-                     or a \
-                     `'}'`."
-                }
-                Error::ExpectedSomeIdent => {
-                    "Expected to parse either a `true`, `false`, or a \
-                     `null`."
-                }
-                Error::ExpectedSomeValue => "Expected this character to start a JSON value.",
-                Error::InvalidNumber => "Invalid number.",
-                Error::InvalidType => "Invalid type",
-                Error::InvalidUnicodeCodePoint => "Invalid unicode code point.",
-                Error::KeyMustBeAString => "Object key is not a string.",
-                Error::TrailingCharacters => {
-                    "JSON has non-whitespace trailing characters after \
-                     the \
-                     value."
-                }
-                Error::TrailingComma => "JSON has a comma after the last value in an array or map.",
-                Error::Custom(msg) => &msg,
-                _ => "Invalid JSON",
-            }
-        )
-    }
-}
 
 /// Deserializer will parse serde-json-wasm flavored JSON into a
 /// serde-annotated struct
@@ -219,7 +101,7 @@ impl<'a> Deserializer<'a> {
         }
     }
 
-    fn parse_str(&mut self) -> Result<&'a str> {
+    fn parse_string(&mut self) -> Result<String> {
         let start = self.index;
         loop {
             match self.peek() {
@@ -252,8 +134,7 @@ impl<'a> Deserializer<'a> {
                     } else {
                         let end = self.index;
                         self.eat_char();
-                        return from_utf8(&self.slice[start..end])
-                            .map_err(|_| Error::InvalidUnicodeCodePoint);
+                        return unescape::unescape(&self.slice[start..end]);
                     }
                 }
                 Some(_) => self.eat_char(),
@@ -363,7 +244,11 @@ macro_rules! deserialize_signed {
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    /// Unsupported. Can’t parse a value without knowing its expected type.
+    /// Unsupported. We rely on typed deserialization methods, even if a JSON
+    /// has enough type information to detect types in many cases.
+    ///
+    /// See https://serde.rs/impl-deserialize.html to learn more about the differentiation
+    /// between `deserialize_{type}` and `deserialize_any`.
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -473,15 +358,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let peek = self.parse_whitespace().ok_or(Error::EofWhileParsingValue)?;
-
-        match peek {
-            b'"' => {
-                self.eat_char();
-                visitor.visit_borrowed_str(self.parse_str()?)
-            }
-            _ => Err(Error::InvalidType),
-        }
+        self.deserialize_string(visitor)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
@@ -493,8 +370,7 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match peek {
             b'"' => {
                 self.eat_char();
-                let str = self.parse_str()?.to_string();
-                visitor.visit_string(str)
+                visitor.visit_string(self.parse_string()?)
             }
             _ => Err(Error::InvalidType),
         }
@@ -680,9 +556,9 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 }
 
 /// Deserializes an instance of type `T` from bytes of JSON text
-pub fn from_slice<'a, T>(v: &'a [u8]) -> Result<T>
+pub fn from_slice<T>(v: &[u8]) -> Result<T>
 where
-    T: de::Deserialize<'a>,
+    T: de::DeserializeOwned,
 {
     let mut de = Deserializer::new(v);
     let value = de::Deserialize::deserialize(&mut de)?;
@@ -692,9 +568,9 @@ where
 }
 
 /// Deserializes an instance of type T from a string of JSON text
-pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+pub fn from_str<T>(s: &str) -> Result<T>
 where
-    T: de::Deserialize<'a>,
+    T: de::DeserializeOwned,
 {
     from_slice(s.as_bytes())
 }
@@ -800,43 +676,29 @@ mod tests {
     }
 
     #[test]
-    fn str() {
-        // simple
-        assert_eq!(from_str(r#" "hello" "#), Ok("hello"));
-        assert_eq!(from_str(r#" "" "#), Ok(""));
-        assert_eq!(from_str(r#" " " "#), Ok(" "));
-        assert_eq!(from_str(r#" "👏" "#), Ok("👏"));
-
-        // no unescaping is done (as documented as a known issue in lib.rs)
-        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\\tlo"));
-        assert_eq!(from_str(r#" "hello \\" "#), Ok("hello \\\\"));
-
-        // escaped " in the string content
-        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo\"bar"#));
-        assert_eq!(from_str(r#" "foo\\\"bar" "#), Ok(r#"foo\\\"bar"#));
-        assert_eq!(from_str(r#" "foo\"\"bar" "#), Ok(r#"foo\"\"bar"#));
-        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#"\"bar"#));
-        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo\""#));
-        assert_eq!(from_str(r#" "\"" "#), Ok(r#"\""#));
-
-        // non-excaped " preceded by backslashes
-        assert_eq!(from_str(r#" "foo bar\\" "#), Ok(r#"foo bar\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\" "#), Ok(r#"foo bar\\\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\\\" "#), Ok(r#"foo bar\\\\\\"#));
-        assert_eq!(from_str(r#" "foo bar\\\\\\\\" "#), Ok(r#"foo bar\\\\\\\\"#));
-        assert_eq!(from_str(r#" "\\" "#), Ok(r#"\\"#));
-    }
-
-    #[test]
     fn string() {
-        assert_eq!(from_str(r#" "hello" "#), Ok(String::from("hello")));
-        assert_eq!(from_str(r#" "" "#), Ok(String::from("")));
-        assert_eq!(from_str(r#" " " "#), Ok(String::from(" ")));
-        assert_eq!(from_str(r#" "👏" "#), Ok(String::from("👏")));
+        assert_eq!(from_str(r#" "hello" "#), Ok("hello".to_string()));
+        assert_eq!(from_str(r#" "" "#), Ok("".to_string()));
+        assert_eq!(from_str(r#" " " "#), Ok(" ".to_string()));
+        assert_eq!(from_str(r#" "👏" "#), Ok("👏".to_string()));
+
+        // Unescapes things
+        assert_eq!(from_str(r#" "hel\tlo" "#), Ok("hel\tlo".to_string()));
+        assert_eq!(from_str(r#" "hel\\lo" "#), Ok("hel\\lo".to_string()));
 
         // escaped " in the string content
-        // (note: no unescaping is performed, as documented as a known issue in lib.rs)
-        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(String::from(r#"foo\"bar"#)));
+        assert_eq!(from_str(r#" "foo\"bar" "#), Ok(r#"foo"bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\\\"ba" "#), Ok(r#"foo\"ba"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"\"ba" "#), Ok(r#"foo""ba"#.to_string()));
+        assert_eq!(from_str(r#" "\"bar" "#), Ok(r#""bar"#.to_string()));
+        assert_eq!(from_str(r#" "foo\"" "#), Ok(r#"foo""#.to_string()));
+        assert_eq!(from_str(r#" "\"" "#), Ok(r#"""#.to_string()));
+
+        // non-escaped " preceded by backslashes
+        assert_eq!(from_str(r#" "fooooo\\" "#), Ok(r#"fooooo\"#.to_string()));
+        assert_eq!(from_str(r#" "fooo\\\\" "#), Ok(r#"fooo\\"#.to_string()));
+        assert_eq!(from_str(r#" "fo\\\\\\" "#), Ok(r#"fo\\\"#.to_string()));
+        assert_eq!(from_str(r#" "\\\\\\\\" "#), Ok(r#"\\\\"#.to_string()));
     }
 
     #[test]
@@ -880,15 +742,14 @@ mod tests {
     #[test]
     fn struct_option() {
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Property<'a> {
-            #[serde(borrow)]
-            description: Option<&'a str>,
+        struct Property {
+            description: Option<String>,
         }
 
         assert_eq!(
             from_str(r#"{ "description": "An ambient temperature sensor" }"#),
             Ok(Property {
-                description: Some("An ambient temperature sensor"),
+                description: Some("An ambient temperature sensor".to_string()),
             })
         );
 
@@ -1159,36 +1020,30 @@ mod tests {
     #[test]
     fn wot() {
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Thing<'a> {
-            #[serde(borrow)]
-            properties: Properties<'a>,
+        struct Thing {
+            properties: Properties,
             #[serde(rename = "type")]
             ty: Type,
         }
 
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Properties<'a> {
-            #[serde(borrow)]
-            temperature: Property<'a>,
-            #[serde(borrow)]
-            humidity: Property<'a>,
-            #[serde(borrow)]
-            led: Property<'a>,
+        struct Properties {
+            temperature: Property,
+            humidity: Property,
+            led: Property,
         }
 
         #[derive(Debug, Deserialize, PartialEq)]
-        struct Property<'a> {
+        struct Property {
             #[serde(rename = "type")]
             ty: Type,
-            unit: Option<&'a str>,
-            #[serde(borrow)]
-            description: Option<&'a str>,
-            href: &'a str,
-            owned: Option<String>,
+            unit: Option<String>,
+            description: Option<String>,
+            href: String,
         }
 
         assert_eq!(
-            from_str::<Thing<'_>>(
+            from_str::<Thing>(
                 r#"
 {
   "type": "thing",
@@ -1197,21 +1052,18 @@ mod tests {
       "type": "number",
       "unit": "celsius",
       "description": "An ambient temperature sensor",
-      "href": "/properties/temperature",
-      "owned": "own temperature"
+      "href": "/properties/temperature"
     },
     "humidity": {
       "type": "number",
       "unit": "percent",
-      "href": "/properties/humidity",
-      "owned": null
+      "href": "/properties/humidity"
     },
     "led": {
       "type": "boolean",
       "unit": null,
       "description": "A red LED",
-      "href": "/properties/led",
-      "owned": "own led"
+      "href": "/properties/led"
     }
   }
 }
@@ -1221,24 +1073,21 @@ mod tests {
                 properties: Properties {
                     temperature: Property {
                         ty: Type::Number,
-                        unit: Some("celsius"),
-                        description: Some("An ambient temperature sensor"),
-                        href: "/properties/temperature",
-                        owned: Some("own temperature".to_string()),
+                        unit: Some("celsius".to_string()),
+                        description: Some("An ambient temperature sensor".to_string()),
+                        href: "/properties/temperature".to_string(),
                     },
                     humidity: Property {
                         ty: Type::Number,
-                        unit: Some("percent"),
+                        unit: Some("percent".to_string()),
                         description: None,
-                        href: "/properties/humidity",
-                        owned: None,
+                        href: "/properties/humidity".to_string(),
                     },
                     led: Property {
                         ty: Type::Boolean,
                         unit: None,
-                        description: Some("A red LED"),
-                        href: "/properties/led",
-                        owned: Some("own led".to_string()),
+                        description: Some("A red LED".to_string()),
+                        href: "/properties/led".to_string(),
                     },
                 },
                 ty: Type::Thing,

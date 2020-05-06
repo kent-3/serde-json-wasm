@@ -499,13 +499,15 @@ mod tests {
     use serde_derive::Serialize;
 
     #[test]
-    fn array() {
-        assert_eq!(to_string(&[0, 1, 2]).unwrap(), "[0,1,2]");
+    fn bool() {
+        assert_eq!(to_string(&true).unwrap(), "true");
+        assert_eq!(to_string(&false).unwrap(), "false");
     }
 
     #[test]
-    fn bool() {
-        assert_eq!(to_string(&true).unwrap(), "true");
+    fn array() {
+        assert_eq!(to_string::<[u8]>(&[]).unwrap(), "[]");
+        assert_eq!(to_string(&[0, 1, 2]).unwrap(), "[0,1,2]");
     }
 
     #[test]

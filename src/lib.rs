@@ -54,7 +54,6 @@
 #![deny(missing_docs)]
 #![deny(rust_2018_compatibility)]
 #![deny(rust_2018_idioms)]
-#![deny(warnings)]
 
 pub mod de;
 pub mod ser;

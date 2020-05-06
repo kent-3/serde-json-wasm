@@ -69,9 +69,15 @@ mod test {
     use serde_derive::{Deserialize, Serialize};
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct Address(String);
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
+    struct CommentId(u32);
+
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
     enum Model {
         Comment,
-        Post { category: String, author: String },
+        Post { category: String, author: Address },
     }
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
@@ -87,6 +93,7 @@ mod test {
         content: Option<String>,
         list: Vec<u32>,
         published: bool,
+        comments: Vec<CommentId>,
         stats: Stats,
     }
 
@@ -98,17 +105,19 @@ mod test {
             content: None,
             list: vec![],
             published: false,
+            comments: vec![],
             stats: Stats { views: 0, score: 0 },
         };
         let max = Item {
             model: Model::Post {
                 category: "fun".to_string(),
-                author: "sunnyboy85".to_string(),
+                author: Address("sunnyboy85".to_string()),
             },
             title: "Nice message".to_string(),
             content: Some("Happy \"blogging\" 👏\n\n\tCheers, I'm out\0\0\0".to_string()),
             list: vec![0, 1, 2, 3, 42, 154841, std::u32::MAX],
             published: true,
+            comments: vec![CommentId(2), CommentId(700)],
             stats: Stats {
                 views: std::u64::MAX,
                 score: std::i64::MIN,

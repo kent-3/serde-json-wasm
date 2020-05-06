@@ -20,6 +20,10 @@ pub type Result<T> = ::core::result::Result<T, Error>;
 pub enum Error {
     /// Buffer is full
     BufferFull,
+
+    /// Custom error message from serde
+    Custom(String),
+
     #[doc(hidden)]
     __Extensible,
 }
@@ -48,7 +52,11 @@ impl error::Error for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Buffer is full")
+        match self {
+            Error::BufferFull => write!(f, "Buffer is full"),
+            Error::Custom(msg) => write!(f, "{}", &msg),
+            _ => write!(f, "Unknown serialization error"),
+        }
     }
 }
 
@@ -416,11 +424,11 @@ where
 }
 
 impl ser::Error for Error {
-    fn custom<T>(_msg: T) -> Self
+    fn custom<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
-        unreachable!()
+        Error::Custom(msg.to_string())
     }
 }
 

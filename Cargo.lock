@@ -26,7 +26,7 @@ checksum = "36df6ac6412072f67cf767ebbde4133a5b2e88e76dc6187fa7104cd16f783399"
 
 [[package]]
 name = "serde-json-wasm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_derive",

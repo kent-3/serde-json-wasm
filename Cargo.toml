@@ -1,7 +1,11 @@
 [package]
-authors = ["Jorge Aparicio <jorge@japaric.io>", "Ethan Frey <ethanfrey@noreply.github.com", "Simon Warta <webmaster128@noreply.github.com"]
+authors = [
+    "Jorge Aparicio <jorge@japaric.io>",
+    "Ethan Frey <ethanfrey@noreply.github.com>",
+    "Simon Warta <webmaster128@noreply.github.com>",
+]
 categories = ["wasm"]
-description = "serde-json for wasm programs"
+description = "serde_json for Wasm programs (small, deterministic, no floats)"
 documentation = "https://docs.rs/serde-json-wasm"
 edition = "2018"
 keywords = ["serde", "json", "wasm"]
@@ -10,7 +14,11 @@ name = "serde-json-wasm"
 readme = "README.md"
 repository = "https://github.com/CosmWasm/serde-json-wasm"
 version = "0.2.0"
-exclude = ["ci/*", ".gitignore", ".cargo", ".travis.yml"]
+exclude = [
+    ".cargo/",
+    ".github/",
+    ".gitignore",
+]
 
 [dependencies]
 serde = { version = "^1.0.80", default-features = false, features = ["alloc"] }

@@ -307,7 +307,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        unreachable!()
+        // Zero-sized (i.e. empty) struct
+        self.buf.extend_from_slice((&"{}").as_bytes());
+        Ok(())
     }
 
     fn serialize_unit_variant(
@@ -741,6 +743,11 @@ mod tests {
 
     #[test]
     fn struct_() {
+        #[derive(Serialize)]
+        struct Nothing;
+
+        assert_eq!(to_string(&Nothing).unwrap(), r#"{}"#);
+
         #[derive(Serialize)]
         struct Empty {}
 

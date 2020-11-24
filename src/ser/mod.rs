@@ -307,8 +307,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        // Zero-sized (i.e. empty) struct
-        self.buf.extend_from_slice(b"{}");
+        // Zero-sized (i.e. empty) struct serialized to (serde_json compatible) "null"
+        self.buf.extend_from_slice(b"null");
         Ok(())
     }
 
@@ -746,7 +746,7 @@ mod tests {
         #[derive(Serialize)]
         struct Nothing;
 
-        assert_eq!(to_string(&Nothing).unwrap(), r#"{}"#);
+        assert_eq!(to_string(&Nothing).unwrap(), r#"null"#);
         assert_eq!(
             to_string(&Nothing).unwrap(),
             serde_json::to_string(&Nothing).unwrap()

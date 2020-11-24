@@ -308,7 +308,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
         // Zero-sized (i.e. empty) struct
-        self.buf.extend_from_slice((&"{}").as_bytes());
+        self.buf.extend_from_slice(b"{}");
         Ok(())
     }
 

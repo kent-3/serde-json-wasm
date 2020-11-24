@@ -747,11 +747,19 @@ mod tests {
         struct Nothing;
 
         assert_eq!(to_string(&Nothing).unwrap(), r#"{}"#);
+        assert_eq!(
+            to_string(&Nothing).unwrap(),
+            serde_json::to_string(&Nothing).unwrap()
+        );
 
         #[derive(Serialize)]
         struct Empty {}
 
         assert_eq!(to_string(&Empty {}).unwrap(), r#"{}"#);
+        assert_eq!(
+            to_string(&Empty {}).unwrap(),
+            serde_json::to_string(&Empty {}).unwrap()
+        );
 
         #[derive(Serialize)]
         struct Tuple {

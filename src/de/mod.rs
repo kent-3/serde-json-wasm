@@ -414,18 +414,17 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unreachable!()
     }
 
-    /// Supported for convenience. Resolves to any requested unit (i.e. empty) struct.
+    /// Resolves "null" to requested unit struct
     fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         let peek = self.parse_whitespace().ok_or(Error::EofWhileParsingValue)?;
 
-        if peek == b'{' {
+        if peek == b'n' {
             self.eat_char();
+            self.parse_ident(b"ull")?;
             let ret = visitor.visit_unit()?;
-            // Check syntax / consume closing curly brace
-            self.end_map()?;
             Ok(ret)
         } else {
             Err(Error::InvalidType)
@@ -825,7 +824,7 @@ mod tests {
         #[derive(Debug, Deserialize, PartialEq, Default)]
         struct Nothing;
 
-        assert_eq!(from_str(r#"{}"#), Ok(Nothing));
+        assert_eq!(from_str(r#"null"#), Ok(Nothing));
     }
 
     #[test]

@@ -307,7 +307,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
-        unreachable!()
+        // Unit struct is serialized to (serde_json compatible) "null"
+        self.buf.extend_from_slice(b"null");
+        Ok(())
     }
 
     fn serialize_unit_variant(
@@ -742,9 +744,22 @@ mod tests {
     #[test]
     fn struct_() {
         #[derive(Serialize)]
+        struct Nothing;
+
+        assert_eq!(to_string(&Nothing).unwrap(), r#"null"#);
+        assert_eq!(
+            to_string(&Nothing).unwrap(),
+            serde_json::to_string(&Nothing).unwrap()
+        );
+
+        #[derive(Serialize)]
         struct Empty {}
 
         assert_eq!(to_string(&Empty {}).unwrap(), r#"{}"#);
+        assert_eq!(
+            to_string(&Empty {}).unwrap(),
+            serde_json::to_string(&Empty {}).unwrap()
+        );
 
         #[derive(Serialize)]
         struct Tuple {

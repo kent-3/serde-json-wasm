@@ -414,12 +414,21 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unreachable!()
     }
 
-    /// Unsupported. Use a more specific deserialize_* method
-    fn deserialize_unit_struct<V>(self, _name: &'static str, _visitor: V) -> Result<V::Value>
+    /// Resolves "null" to requested unit struct
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unreachable!()
+        let peek = self.parse_whitespace().ok_or(Error::EofWhileParsingValue)?;
+
+        if peek == b'n' {
+            self.eat_char();
+            self.parse_ident(b"ull")?;
+            let ret = visitor.visit_unit()?;
+            Ok(ret)
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 
     /// Unsupported. We can’t parse newtypes because we don’t know the underlying type.
@@ -800,6 +809,24 @@ mod tests {
             from_str::<Xy>(r#"[10, 20, 30]"#),
             Err(crate::de::Error::TrailingCharacters)
         );
+    }
+
+    #[test]
+    fn struct_empty() {
+        #[derive(Debug, Deserialize, PartialEq, Clone)]
+        struct Empty {};
+
+        assert_eq!(from_str(r#"{}"#), Ok(Empty {}));
+        assert_eq!(serde_json::from_str::<Empty>(r#"{}"#).unwrap(), Empty {});
+    }
+
+    #[test]
+    fn struct_nothing() {
+        #[derive(Debug, Deserialize, PartialEq, Default)]
+        struct Nothing;
+
+        assert_eq!(from_str(r#"null"#), Ok(Nothing));
+        assert_eq!(serde_json::from_str::<Nothing>(r#"null"#).unwrap(), Nothing);
     }
 
     #[test]

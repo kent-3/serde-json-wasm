@@ -155,7 +155,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeSeq = SerializeSeq<'a>;
     type SerializeTuple = SerializeSeq<'a>;
     type SerializeTupleStruct = Unreachable;
-    type SerializeTupleVariant = Unreachable;
+    type SerializeTupleVariant = SerializeSeq<'a>;
     type SerializeMap = Unreachable;
     type SerializeStruct = SerializeStruct<'a>;
     type SerializeStructVariant = SerializeStruct<'a>;
@@ -368,10 +368,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        unreachable!()
+        self.buf.push(b'{');
+        self.serialize_str(variant)?;
+        self.buf.push(b':');
+        self.serialize_tuple(len)
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -599,14 +602,38 @@ mod tests {
     }
 
     #[test]
+    fn tuple_variant() {
+        #[derive(Serialize)]
+        enum Ops {
+            Exit(),
+            Square(i32),
+            Add(i64, i64),
+        }
+        assert_eq!(to_string(&Ops::Exit()).unwrap(), r#"{"Exit":[]}"#);
+        assert_eq!(
+            to_string(&Ops::Exit()).unwrap(),
+            serde_json::to_string(&Ops::Exit()).unwrap()
+        );
+        assert_eq!(to_string(&Ops::Square(2)).unwrap(), r#"{"Square":2}"#);
+        assert_eq!(
+            to_string(&Ops::Square(2)).unwrap(),
+            serde_json::to_string(&Ops::Square(2)).unwrap()
+        );
+        assert_eq!(to_string(&Ops::Add(3, 4)).unwrap(), r#"{"Add":[3,4]}"#);
+        assert_eq!(
+            to_string(&Ops::Add(3, 4)).unwrap(),
+            serde_json::to_string(&Ops::Add(3, 4)).unwrap()
+        );
+    }
+
+    #[test]
     fn enum_() {
         #[derive(Serialize)]
         enum Animal {
             Ant,
             #[serde(rename = "kitty")]
             Cat,
-            // serialize_tuple_variant not implemented right now
-            // Dog(),
+            Dog(),
             Horse {},
             Zebra {
                 height: u32,
@@ -614,7 +641,7 @@ mod tests {
         }
         assert_eq!(to_string(&Animal::Ant).unwrap(), r#""Ant""#);
         assert_eq!(to_string(&Animal::Cat).unwrap(), r#""kitty""#);
-        // assert_eq!(to_string(&Animal::Dog()).unwrap(), r#"{"Dog":[]}"#);
+        assert_eq!(to_string(&Animal::Dog()).unwrap(), r#"{"Dog":[]}"#);
         assert_eq!(to_string(&Animal::Horse {}).unwrap(), r#"{"Horse":{}}"#);
         assert_eq!(
             to_string(&Animal::Zebra { height: 273 }).unwrap(),

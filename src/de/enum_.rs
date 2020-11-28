@@ -104,11 +104,22 @@ impl<'a, 'de> de::VariantAccess<'de> for StructVariantAccess<'a, 'de> {
         }
     }
 
-    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        Err(Error::InvalidType)
+        let value = de::Deserializer::deserialize_tuple(&mut *self.de, len, visitor)?;
+        match self
+            .de
+            .parse_whitespace()
+            .ok_or(Error::EofWhileParsingValue)?
+        {
+            b'}' => {
+                self.de.eat_char();
+                Ok(value)
+            }
+            _ => Err(Error::ExpectedSomeValue),
+        }
     }
 
     fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>

@@ -233,7 +233,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         // An excellent explanation is available at https://www.youtube.com/watch?v=HhIEDWmQS3w
 
         // Temporary storage for encoded a single char.
-        // A char is up to 4 bytes long wehn encoded to UTF-8.
+        // A char is up to 4 bytes long when encoded to UTF-8.
         let mut encoding_tmp = [0u8; 4];
 
         for c in v.chars() {
@@ -276,8 +276,12 @@ impl<'a> ser::Serializer for &'a mut Serializer {
                     self.buf.push(hex2);
                 }
                 _ => {
-                    let encoded = c.encode_utf8(&mut encoding_tmp as &mut [u8]);
-                    self.buf.extend_from_slice(encoded.as_bytes());
+                    if c.len_utf8() == 1 {
+                        self.buf.push(c as u8);
+                    } else {
+                        let encoded = c.encode_utf8(&mut encoding_tmp as &mut [u8]);
+                        self.buf.extend_from_slice(encoded.as_bytes());
+                    }
                 }
             }
         }

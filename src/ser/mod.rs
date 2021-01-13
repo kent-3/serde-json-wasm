@@ -303,7 +303,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        unreachable!()
+        // The unit type is a zero element tuple, so the consistent way to serialize this would be "[]".
+        // However, for compatibility with serde_json we serialize to "null".
+        self.buf.extend_from_slice(b"null");
+        Ok(())
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
@@ -599,6 +602,34 @@ mod tests {
     fn array() {
         assert_eq!(to_string::<[u8]>(&[]).unwrap(), "[]");
         assert_eq!(to_string(&[0, 1, 2]).unwrap(), "[0,1,2]");
+    }
+
+    #[test]
+    fn tuple() {
+        type Pair = (i64, i64);
+        type Wrapped = (i64,); // Comma differentiates one element tuple from a primary type surrounded by parentheses
+        type Unit = ();
+
+        let pair: Pair = (1, 2);
+        assert_eq!(to_string(&pair).unwrap(), "[1,2]");
+        assert_eq!(
+            to_string(&pair).unwrap(),
+            serde_json::to_string(&pair).unwrap()
+        );
+
+        let wrapped: Wrapped = (5,);
+        assert_eq!(to_string(&wrapped).unwrap(), "[5]");
+        assert_eq!(
+            to_string(&wrapped).unwrap(),
+            serde_json::to_string(&wrapped).unwrap()
+        );
+
+        let unit: Unit = ();
+        assert_eq!(to_string(&unit).unwrap(), "null");
+        assert_eq!(
+            to_string(&unit).unwrap(),
+            serde_json::to_string(&unit).unwrap()
+        );
     }
 
     #[test]

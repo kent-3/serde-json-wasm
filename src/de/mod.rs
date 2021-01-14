@@ -13,12 +13,18 @@ use serde::de::{self, Visitor};
 use self::enum_::{StructVariantAccess, UnitVariantAccess};
 use self::map::MapAccess;
 use self::seq::SeqAccess;
+use std::str::from_utf8;
 
 /// Deserializer will parse serde-json-wasm flavored JSON into a
 /// serde-annotated struct
 pub struct Deserializer<'b> {
     slice: &'b [u8],
     index: usize,
+}
+
+enum StringLike<'a> {
+    Borrowed(&'a str),
+    Owned(String),
 }
 
 impl<'a> Deserializer<'a> {
@@ -101,43 +107,40 @@ impl<'a> Deserializer<'a> {
         }
     }
 
-    fn parse_string(&mut self) -> Result<String> {
+    fn parse_string(&mut self) -> Result<StringLike<'a>> {
         let start = self.index;
+        let mut contains_backslash = false;
+        let mut escaped = false;
         loop {
             match self.peek() {
                 Some(b'"') => {
-                    // Counts the number of backslashes in front of the current index.
-                    //
-                    // "some string with \\\" included."
-                    //                  ^^^^^
-                    //                  |||||
-                    //       loop run:  4321|
-                    //                      |
-                    //                   `index`
-                    //
-                    // Since we only get in this code branch if we found a " starting the string and `index` is greater
-                    // than the start position, we know the loop will end no later than this point.
-                    let leading_backslashes = |index: usize| -> usize {
-                        let mut count = 0;
-                        loop {
-                            if self.slice[index - count - 1] == b'\\' {
-                                count += 1;
-                            } else {
-                                return count;
-                            }
-                        }
-                    };
-
-                    let is_escaped = leading_backslashes(self.index) % 2 == 1;
-                    if is_escaped {
+                    if escaped {
+                        escaped = false;
                         self.eat_char(); // just continue
                     } else {
                         let end = self.index;
                         self.eat_char();
-                        return unescape::unescape(&self.slice[start..end]);
+                        return if contains_backslash {
+                            Ok(StringLike::Owned(unescape::unescape(
+                                &self.slice[start..end],
+                            )?))
+                        } else {
+                            Ok(StringLike::Borrowed(
+                                from_utf8(&self.slice[start..end])
+                                    .map_err(|_| Error::InvalidUnicodeCodePoint)?,
+                            ))
+                        };
                     }
                 }
-                Some(_) => self.eat_char(),
+                Some(b'\\') => {
+                    contains_backslash = true;
+                    escaped = !escaped;
+                    self.eat_char()
+                }
+                Some(_) => {
+                    escaped = false;
+                    self.eat_char()
+                }
                 None => return Err(Error::EofWhileParsingString),
             }
         }
@@ -370,7 +373,11 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         match peek {
             b'"' => {
                 self.eat_char();
-                visitor.visit_string(self.parse_string()?)
+                let str_like = self.parse_string()?;
+                match str_like {
+                    StringLike::Borrowed(str) => visitor.visit_borrowed_str(str),
+                    StringLike::Owned(string) => visitor.visit_string(string),
+                }
             }
             _ => Err(Error::InvalidType),
         }

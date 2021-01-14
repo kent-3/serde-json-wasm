@@ -17,15 +17,13 @@ pub type Result<T> = ::core::result::Result<T, Error>;
 
 /// This type represents all possible errors that can occur when serializing JSON data
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Error {
     /// Buffer is full
     BufferFull,
 
     /// Custom error message from serde
     Custom(String),
-
-    #[doc(hidden)]
-    __Extensible,
 }
 
 impl From<()> for Error {
@@ -55,7 +53,6 @@ impl fmt::Display for Error {
         match self {
             Error::BufferFull => write!(f, "Buffer is full"),
             Error::Custom(msg) => write!(f, "{}", &msg),
-            _ => write!(f, "Unknown serialization error"),
         }
     }
 }

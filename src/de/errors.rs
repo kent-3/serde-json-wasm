@@ -6,6 +6,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 /// This type represents all possible errors that can occur when deserializing JSON data
 #[derive(Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Control character (U+0000 to U+001F) found in string. Those must always be escaped.
     ControlCharacterInString,
@@ -69,9 +70,6 @@ pub enum Error {
 
     /// Custom error message from serde
     Custom(String),
-
-    #[doc(hidden)]
-    __Extensible,
 }
 
 impl error::Error for Error {
@@ -135,7 +133,6 @@ impl fmt::Display for Error {
                 }
                 Error::TrailingComma => "JSON has a comma after the last value in an array or map.",
                 Error::Custom(msg) => &msg,
-                _ => "Invalid JSON",
             }
         )
     }

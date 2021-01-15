@@ -413,16 +413,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    /// Unsupported. Use a more specific deserialize_* method
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        unreachable!()
-    }
-
-    /// Resolves "null" to requested unit struct
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    /// Resolves "null" to ()
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -436,6 +428,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         } else {
             Err(Error::InvalidType)
         }
+    }
+
+    /// Resolves "null" to requested unit struct
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_unit(visitor)
     }
 
     /// Unsupported. We can’t parse newtypes because we don’t know the underlying type.
@@ -850,6 +850,12 @@ mod tests {
 
         assert_eq!(from_str(r#"{}"#), Ok(Empty {}));
         assert_eq!(serde_json::from_str::<Empty>(r#"{}"#).unwrap(), Empty {});
+    }
+
+    #[test]
+    fn unit() {
+        assert_eq!(from_str(r#"null"#), Ok(()));
+        assert_eq!(serde_json::from_str::<()>(r#"null"#).unwrap(), ());
     }
 
     #[test]

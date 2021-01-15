@@ -413,16 +413,8 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         }
     }
 
-    /// Unsupported. Use a more specific deserialize_* method
-    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
-    where
-        V: Visitor<'de>,
-    {
-        unreachable!()
-    }
-
-    /// Resolves "null" to requested unit struct
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    /// Resolves "null" to ()
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -436,6 +428,14 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         } else {
             Err(Error::InvalidType)
         }
+    }
+
+    /// Resolves "null" to requested unit struct
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_unit(visitor)
     }
 
     /// Unsupported. We can’t parse newtypes because we don’t know the underlying type.
@@ -667,6 +667,25 @@ mod tests {
 
         // errors
         assert!(from_str::<[i32; 2]>("[0, 1,]").is_err());
+    }
+
+    #[test]
+    fn tuple() {
+        type Pair = (i64, i64);
+        type Wrapped = (i64,); // Comma differentiates one element tuple from a primary type surrounded by parentheses
+        type Unit = ();
+
+        let pair: Pair = (1, 2);
+        assert_eq!(from_str("[1,2]"), Ok(pair));
+        assert_eq!(serde_json::from_str::<Pair>("[1,2]").unwrap(), pair);
+
+        let wrapped: Wrapped = (5,);
+        assert_eq!(from_str("[5]"), Ok(wrapped));
+        assert_eq!(serde_json::from_str::<Wrapped>("[5]").unwrap(), wrapped);
+
+        let unit: Unit = ();
+        assert_eq!(from_str("null"), Ok(unit));
+        assert_eq!(serde_json::from_str::<()>("null").unwrap(), unit);
     }
 
     #[test]

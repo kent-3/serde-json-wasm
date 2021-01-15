@@ -902,6 +902,7 @@ mod tests {
         #[derive(Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "lowercase")]
         pub enum MyResult {
+            Unit(()),
             Ok(Response),
             Err(String),
         }
@@ -918,6 +919,12 @@ mod tests {
         assert_eq!(json, r#"{"err":"some error"}"#.to_string());
         let loaded = crate::from_str(&json).expect("re-load err enum");
         assert_eq!(err_input, loaded);
+
+        let unit = MyResult::Unit(());
+        let json = to_string(&unit).expect("encode unit enum");
+        assert_eq!(json, r#"{"unit":null}"#.to_string());
+        let loaded = crate::from_str(&json).expect("re-load unit enum");
+        assert_eq!(unit, loaded);
 
         let empty_list = MyResult::Ok(Response {
             log: Some("log message".to_string()),

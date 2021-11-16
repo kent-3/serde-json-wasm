@@ -2,7 +2,7 @@
 
 use std::{error, fmt};
 
-use serde::{ser, serde_if_integer128};
+use serde::ser;
 
 use std::vec::Vec;
 
@@ -186,15 +186,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         serialize_signed!(self, 20, v, i64, u64)
     }
 
-    serde_if_integer128! {
-        fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
-            // -170141183460469231731687303715884105728
-            let res: Result<Self::Ok> = serialize_signed!(self, 40, v, i128, u128);
-            res?;
-            self.buf.insert(0, b'"');
-            self.buf.push(b'"');
-            Ok(())
-        }
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
+        // -170141183460469231731687303715884105728
+        let res: Result<Self::Ok> = serialize_signed!(self, 40, v, i128, u128);
+        res?;
+        self.buf.insert(0, b'"');
+        self.buf.push(b'"');
+        Ok(())
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok> {
@@ -217,15 +215,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         serialize_unsigned!(self, 20, v)
     }
 
-    serde_if_integer128! {
-        fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
-            // 340282366920938463463374607431768211455
-            let res: Result<Self::Ok> = serialize_unsigned!(self, 39, v);
-            res?;
-            self.buf.insert(0, b'"');
-            self.buf.push(b'"');
-            Ok(())
-        }
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
+        // 340282366920938463463374607431768211455
+        let res: Result<Self::Ok> = serialize_unsigned!(self, 39, v);
+        res?;
+        self.buf.insert(0, b'"');
+        self.buf.push(b'"');
+        Ok(())
     }
 
     fn serialize_f32(self, _v: f32) -> Result<Self::Ok> {
@@ -535,7 +531,6 @@ impl ser::SerializeStructVariant for Unreachable {
 #[cfg(test)]
 mod tests {
     use super::to_string;
-    use serde::serde_if_integer128;
     use serde_derive::Serialize;
 
     #[test]
@@ -621,64 +616,62 @@ mod tests {
             "-9223372036854775808"
         );
 
-        serde_if_integer128! {
-            assert_eq!(to_string::<u128>(&0).unwrap(), r#""0""#);
-            assert_eq!(to_string::<u128>(&1).unwrap(), r#""1""#);
-            assert_eq!(to_string::<u128>(&456789).unwrap(), r#""456789""#);
-            assert_eq!(to_string::<u128>(&4294967295).unwrap(), r#""4294967295""#);
-            assert_eq!(to_string::<u128>(&4294967296).unwrap(), r#""4294967296""#);
-            assert_eq!(
-                to_string::<u128>(&9007199254740991).unwrap(),
-                r#""9007199254740991""#
-            ); // Number.MAX_SAFE_INTEGER
-            assert_eq!(
-                to_string::<u128>(&9007199254740992).unwrap(),
-                r#""9007199254740992""#
-            ); // Number.MAX_SAFE_INTEGER+1
-            assert_eq!(
-                to_string::<u128>(&9223372036854775807).unwrap(),
-                r#""9223372036854775807""#
-            );
-            assert_eq!(
-                to_string::<u128>(&9223372036854775808).unwrap(),
-                r#""9223372036854775808""#
-            );
-            assert_eq!(
-                to_string::<u128>(&std::u128::MAX).unwrap(),
-                r#""340282366920938463463374607431768211455""#
-            );
+        assert_eq!(to_string::<u128>(&0).unwrap(), r#""0""#);
+        assert_eq!(to_string::<u128>(&1).unwrap(), r#""1""#);
+        assert_eq!(to_string::<u128>(&456789).unwrap(), r#""456789""#);
+        assert_eq!(to_string::<u128>(&4294967295).unwrap(), r#""4294967295""#);
+        assert_eq!(to_string::<u128>(&4294967296).unwrap(), r#""4294967296""#);
+        assert_eq!(
+            to_string::<u128>(&9007199254740991).unwrap(),
+            r#""9007199254740991""#
+        ); // Number.MAX_SAFE_INTEGER
+        assert_eq!(
+            to_string::<u128>(&9007199254740992).unwrap(),
+            r#""9007199254740992""#
+        ); // Number.MAX_SAFE_INTEGER+1
+        assert_eq!(
+            to_string::<u128>(&9223372036854775807).unwrap(),
+            r#""9223372036854775807""#
+        );
+        assert_eq!(
+            to_string::<u128>(&9223372036854775808).unwrap(),
+            r#""9223372036854775808""#
+        );
+        assert_eq!(
+            to_string::<u128>(&std::u128::MAX).unwrap(),
+            r#""340282366920938463463374607431768211455""#
+        );
 
-            assert_eq!(to_string::<i128>(&0).unwrap(), r#""0""#);
-            assert_eq!(to_string::<i128>(&1).unwrap(), r#""1""#);
-            assert_eq!(to_string::<i128>(&456789).unwrap(), r#""456789""#);
-            assert_eq!(to_string::<i128>(&4294967295).unwrap(), r#""4294967295""#);
-            assert_eq!(to_string::<i128>(&4294967296).unwrap(), r#""4294967296""#);
-            assert_eq!(
-                to_string::<i128>(&9007199254740991).unwrap(),
-                r#""9007199254740991""#
-            ); // Number.MAX_SAFE_INTEGER
-            assert_eq!(
-                to_string::<i128>(&9007199254740992).unwrap(),
-                r#""9007199254740992""#
-            ); // Number.MAX_SAFE_INTEGER+1
-            assert_eq!(
-                to_string::<i128>(&9223372036854775807).unwrap(),
-                r#""9223372036854775807""#
-            );
-            assert_eq!(
-                to_string::<i128>(&9223372036854775808).unwrap(),
-                r#""9223372036854775808""#
-            );
-            assert_eq!(
-                to_string::<i128>(&std::i128::MAX).unwrap(),
-                r#""170141183460469231731687303715884105727""#
-            );
-            assert_eq!(to_string::<i128>(&-1).unwrap(), r#""-1""#);
-            assert_eq!(
-                to_string::<i128>(&std::i128::MIN).unwrap(),
-                r#""-170141183460469231731687303715884105728""#
-            );
-        }
+        assert_eq!(to_string::<i128>(&0).unwrap(), r#""0""#);
+        assert_eq!(to_string::<i128>(&1).unwrap(), r#""1""#);
+        assert_eq!(to_string::<i128>(&456789).unwrap(), r#""456789""#);
+        assert_eq!(to_string::<i128>(&4294967295).unwrap(), r#""4294967295""#);
+        assert_eq!(to_string::<i128>(&4294967296).unwrap(), r#""4294967296""#);
+        assert_eq!(
+            to_string::<i128>(&9007199254740991).unwrap(),
+            r#""9007199254740991""#
+        ); // Number.MAX_SAFE_INTEGER
+        assert_eq!(
+            to_string::<i128>(&9007199254740992).unwrap(),
+            r#""9007199254740992""#
+        ); // Number.MAX_SAFE_INTEGER+1
+        assert_eq!(
+            to_string::<i128>(&9223372036854775807).unwrap(),
+            r#""9223372036854775807""#
+        );
+        assert_eq!(
+            to_string::<i128>(&9223372036854775808).unwrap(),
+            r#""9223372036854775808""#
+        );
+        assert_eq!(
+            to_string::<i128>(&std::i128::MAX).unwrap(),
+            r#""170141183460469231731687303715884105727""#
+        );
+        assert_eq!(to_string::<i128>(&-1).unwrap(), r#""-1""#);
+        assert_eq!(
+            to_string::<i128>(&std::i128::MIN).unwrap(),
+            r#""-170141183460469231731687303715884105728""#
+        );
     }
 
     #[test]

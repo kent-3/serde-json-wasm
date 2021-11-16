@@ -9,6 +9,7 @@ mod unescape;
 pub use errors::{Error, Result};
 
 use serde::de::{self, Visitor};
+use serde::serde_if_integer128;
 
 use self::enum_::{StructVariantAccess, UnitVariantAccess};
 use self::map::MapAccess;
@@ -194,9 +195,10 @@ macro_rules! deserialize_unsigned {
                                 .checked_add((c - b'0') as $uxx)
                                 .ok_or(Error::InvalidNumber)?;
                         }
-                        _ => return $visitor.$visit_uxx(number),
+                        _ => break,
                     }
                 }
+                $visitor.$visit_uxx(number)
             }
             _ => Err(Error::InvalidType),
         }
@@ -235,9 +237,10 @@ macro_rules! deserialize_signed {
                                 .checked_add((c - b'0') as $ixx * if signed { -1 } else { 1 })
                                 .ok_or(Error::InvalidNumber)?;
                         }
-                        _ => return $visitor.$visit_ixx(number),
+                        _ => break,
                     }
                 }
+                $visitor.$visit_ixx(number)
             }
             _ => return Err(Error::InvalidType),
         }
@@ -308,6 +311,34 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         deserialize_signed!(self, visitor, i64, visit_i64)
     }
 
+    serde_if_integer128! {
+        fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value>
+        where
+            V: Visitor<'de>,
+        {
+            match self
+                .parse_whitespace()
+                .ok_or(Error::EofWhileParsingValue)? {
+                    b'"' => {
+                        self.eat_char()
+                    }
+                    _ => return Err(Error::InvalidType)
+                };
+
+            let result = match self.peek() {
+                Some(b'0'..=b'9' | b'-') => deserialize_signed!(self, visitor, i128, visit_i128),
+                _ => return Err(Error::InvalidType)
+            };
+            match self.peek() {
+                Some(b'"') => {
+                    self.eat_char();
+                    result
+                }
+                _ => Err(Error::InvalidType)
+            }
+        }
+    }
+
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -334,6 +365,35 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         deserialize_unsigned!(self, visitor, u64, visit_u64)
+    }
+
+    serde_if_integer128! {
+        fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value>
+        where
+            V: Visitor<'de>,
+        {
+            match self
+                .parse_whitespace()
+                .ok_or(Error::EofWhileParsingValue)? {
+                    b'"' => {
+                        self.eat_char();
+                    }
+                    _ => return Err(Error::InvalidType)
+                };
+
+            let result = match self.peek() {
+                Some(b'-') => return Err(Error::InvalidNumber),
+                Some(b'0'..=b'9') => deserialize_unsigned!(self, visitor, u128, visit_u128),
+                _ => return Err(Error::InvalidType)
+            };
+            match self.peek() {
+                Some(b'"') => {
+                    self.eat_char();
+                    result
+                }
+                _ => Err(Error::InvalidType)
+            }
+        }
     }
 
     fn deserialize_f32<V>(self, _visitor: V) -> Result<V::Value>
@@ -658,6 +718,49 @@ mod tests {
         assert_eq!(from_str("[4,5]\r"), Ok([4, 5]));
         assert_eq!(from_str("[4,5]\n\r"), Ok([4, 5]));
         assert_eq!(from_str("[4,5]\r\n"), Ok([4, 5]));
+    }
+
+    #[test]
+    fn integer128() {
+        assert_eq!(from_str::<i128>(r#"0"#), Err(crate::de::Error::InvalidType));
+        assert_eq!(from_str::<i128>(r#""0""#), Ok(0));
+        assert_eq!(from_str::<i128>(r#""1""#), Ok(1));
+        assert_eq!(from_str::<i128>(r#""-1""#), Ok(-1));
+        // max i128
+        assert_eq!(
+            from_str::<i128>(r#""170141183460469231731687303715884105727""#),
+            Ok(170141183460469231731687303715884105727)
+        );
+        assert_eq!(
+            from_str::<i128>(r#""170141183460469231731687303715884105728""#),
+            Err(crate::de::Error::InvalidNumber)
+        );
+        // min i128
+        assert_eq!(
+            from_str::<i128>(r#""-170141183460469231731687303715884105728""#),
+            Ok(-170141183460469231731687303715884105728)
+        );
+        assert_eq!(
+            from_str::<i128>(r#""-170141183460469231731687303715884105729""#),
+            Err(crate::de::Error::InvalidNumber)
+        );
+
+        assert_eq!(from_str::<u128>(r#"0"#), Err(crate::de::Error::InvalidType));
+        assert_eq!(from_str::<u128>(r#""0""#), Ok(0));
+        assert_eq!(from_str::<u128>(r#""1""#), Ok(1));
+        assert_eq!(
+            from_str::<u128>(r#""-1""#),
+            Err(crate::de::Error::InvalidNumber)
+        );
+        // max u128
+        assert_eq!(
+            from_str::<u128>(r#""340282366920938463463374607431768211455""#),
+            Ok(340282366920938463463374607431768211455)
+        );
+        assert_eq!(
+            from_str::<u128>(r#""340282366920938463463374607431768211456""#),
+            Err(crate::de::Error::InvalidNumber)
+        )
     }
 
     #[test]

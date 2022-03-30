@@ -188,9 +188,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_i128(self, v: i128) -> Result<Self::Ok> {
         // -170141183460469231731687303715884105728
+        self.buf.push(b'"');
         let res: Result<Self::Ok> = serialize_signed!(self, 40, v, i128, u128);
         res?;
-        self.buf.insert(0, b'"');
         self.buf.push(b'"');
         Ok(())
     }
@@ -217,9 +217,9 @@ impl<'a> ser::Serializer for &'a mut Serializer {
 
     fn serialize_u128(self, v: u128) -> Result<Self::Ok> {
         // 340282366920938463463374607431768211455
+        self.buf.push(b'"');
         let res: Result<Self::Ok> = serialize_unsigned!(self, 39, v);
         res?;
-        self.buf.insert(0, b'"');
         self.buf.push(b'"');
         Ok(())
     }
@@ -705,6 +705,15 @@ mod tests {
         assert_eq!(
             to_string(&unit).unwrap(),
             serde_json::to_string(&unit).unwrap()
+        );
+
+        type BigPair = (u128, u128);
+
+        let pair: BigPair = (std::u128::MAX, std::u128::MAX);
+
+        assert_eq!(
+            to_string(&pair).unwrap(),
+            r#"["340282366920938463463374607431768211455","340282366920938463463374607431768211455"]"#
         );
     }
 

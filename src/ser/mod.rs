@@ -8,9 +8,12 @@ use std::vec::Vec;
 
 use self::seq::SerializeSeq;
 use self::struct_::SerializeStruct;
+use self::map::SerializeMap;
 
 mod seq;
 mod struct_;
+mod map;
+
 
 /// Serialization result
 pub type Result<T> = ::core::result::Result<T, Error>;
@@ -153,7 +156,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeTuple = SerializeSeq<'a>;
     type SerializeTupleStruct = Unreachable;
     type SerializeTupleVariant = SerializeSeq<'a>;
-    type SerializeMap = Unreachable;
+    type SerializeMap = SerializeMap<'a>;
     type SerializeStruct = SerializeStruct<'a>;
     type SerializeStructVariant = SerializeStruct<'a>;
 
@@ -400,7 +403,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        unreachable!()
+        self.buf.push(b'{');
+        Ok(SerializeMap::new(self))
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {

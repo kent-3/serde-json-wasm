@@ -576,9 +576,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    /// Unsupported. Can’t make an arbitrary-sized map in no-std. Use a struct with a
-    /// known format, or implement a custom map deserializer / visitor:
-    /// https://serde.rs/deserialize-map.html
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,

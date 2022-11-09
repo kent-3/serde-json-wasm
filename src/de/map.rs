@@ -163,11 +163,11 @@ impl<'de, 'a> de::Deserializer<'de> for MapKey<'a, 'de> {
         self.de.deserialize_str(visitor)
     }
 
-    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
-        unreachable!()
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>

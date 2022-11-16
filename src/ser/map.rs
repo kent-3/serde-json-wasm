@@ -2,21 +2,18 @@ use serde::ser;
 
 use crate::ser::{Error, Result, Serializer};
 
-pub struct SerializeMap<'a>
-{
+pub struct SerializeMap<'a> {
     ser: &'a mut Serializer,
     first: bool,
 }
 
-impl<'a> SerializeMap<'a>
-{
+impl<'a> SerializeMap<'a> {
     pub(crate) fn new(ser: &'a mut Serializer) -> Self {
         SerializeMap { ser, first: true }
     }
 }
 
-impl<'a> ser::SerializeMap for SerializeMap<'a>
-{
+impl<'a> ser::SerializeMap for SerializeMap<'a> {
     type Ok = ();
     type Error = Error;
 

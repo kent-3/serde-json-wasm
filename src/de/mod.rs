@@ -593,7 +593,6 @@ impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         } else {
             Err(Error::InvalidType)
         }
-        
     }
 
     fn deserialize_struct<V>(

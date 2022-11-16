@@ -6,14 +6,13 @@ use serde::ser;
 
 use std::vec::Vec;
 
+use self::map::SerializeMap;
 use self::seq::SerializeSeq;
 use self::struct_::SerializeStruct;
-use self::map::SerializeMap;
 
+mod map;
 mod seq;
 mod struct_;
-mod map;
-
 
 /// Serialization result
 pub type Result<T> = ::core::result::Result<T, Error>;
@@ -988,7 +987,7 @@ mod tests {
     fn btree_map() {
         use std::collections::BTreeMap;
         // empty map
-        assert_eq!(to_string(&BTreeMap::<(),()>::new()).unwrap(), r#"{}"#);
+        assert_eq!(to_string(&BTreeMap::<(), ()>::new()).unwrap(), r#"{}"#);
 
         let mut two_values = BTreeMap::new();
         two_values.insert("my_name", "joseph");

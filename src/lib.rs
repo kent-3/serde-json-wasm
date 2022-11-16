@@ -97,7 +97,7 @@ mod test {
         published: bool,
         comments: Vec<CommentId>,
         stats: Stats,
-        balances: BTreeMap<String,u16>,
+        balances: BTreeMap<String, u16>,
     }
 
     #[test]
@@ -110,9 +110,9 @@ mod test {
             published: false,
             comments: vec![],
             stats: Stats { views: 0, score: 0 },
-            balances:  BTreeMap::new(),
+            balances: BTreeMap::new(),
         };
-        let mut balances: BTreeMap<String,u16> = BTreeMap::new();
+        let mut balances: BTreeMap<String, u16> = BTreeMap::new();
         balances.insert("chareen".into(), 347);
         let max = Item {
             model: Model::Post {
@@ -179,7 +179,7 @@ mod test {
             author: Address("no-reply@domain.com".to_owned()),
         });
 
-        let mut balances: BTreeMap<String,u16> = BTreeMap::new();
+        let mut balances: BTreeMap<String, u16> = BTreeMap::new();
         balances.insert("chareen".into(), 347);
 
         let item = ModelOrItem::Item(Item {
@@ -193,7 +193,7 @@ mod test {
                 views: 110,
                 score: 12,
             },
-            balances
+            balances,
         });
 
         assert_eq!(

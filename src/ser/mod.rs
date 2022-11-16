@@ -1007,10 +1007,11 @@ mod tests {
             r#"{"one_entry":{"her_name":"aline"},"two_entries":{"her_name":"aline","my_name":"joseph"}}"#
         );
     }
-    use serde_derive::Deserialize;
 
     #[test]
     fn serialize_embedded_enum() {
+        use serde_derive::Deserialize;
+
         #[derive(Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "lowercase")]
         pub enum MyResult {

@@ -534,6 +534,7 @@ impl ser::SerializeStructVariant for Unreachable {
 
 #[cfg(test)]
 mod tests {
+
     use super::to_string;
     use serde_derive::Serialize;
 
@@ -983,6 +984,30 @@ mod tests {
         );
     }
 
+    #[test]
+    fn btree_map() {
+        use std::collections::BTreeMap;
+        // empty map
+        assert_eq!(to_string(&BTreeMap::<(),()>::new()).unwrap(), r#"{}"#);
+
+        let mut two_values = BTreeMap::new();
+        two_values.insert("my_name", "joseph");
+        two_values.insert("her_name", "aline");
+        assert_eq!(
+            to_string(&two_values).unwrap(),
+            r#"{"her_name":"aline","my_name":"joseph"}"#
+        );
+
+        let mut nested_map = BTreeMap::new();
+        nested_map.insert("two_entries", two_values.clone());
+
+        two_values.remove("my_name");
+        nested_map.insert("one_entry", two_values);
+        assert_eq!(
+            to_string(&nested_map).unwrap(),
+            r#"{"one_entry":{"her_name":"aline"},"two_entries":{"her_name":"aline","my_name":"joseph"}}"#
+        );
+    }
     use serde_derive::Deserialize;
 
     #[test]

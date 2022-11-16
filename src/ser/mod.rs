@@ -1009,6 +1009,30 @@ mod tests {
     }
 
     #[test]
+    fn hash_map() {
+        use std::collections::HashMap;
+
+        // empty map
+        assert_eq!(to_string(&HashMap::<(), ()>::new()).unwrap(), r#"{}"#);
+
+        // One element
+        let mut map = HashMap::new();
+        map.insert("my_age", 28);
+        assert_eq!(to_string(&map).unwrap(), r#"{"my_age":28}"#);
+
+        // HashMap does not have deterministic iteration order (except in the Wasm target).
+        // So the two element map is serialized as one of two options.
+        let mut two_values = HashMap::new();
+        two_values.insert("my_name", "joseph");
+        two_values.insert("her_name", "aline");
+        let serialized = to_string(&two_values).unwrap();
+        assert!(
+            serialized == r#"{"her_name":"aline","my_name":"joseph"}"#
+                || serialized == r#"{"my_name":"joseph","her_name":"aline"}"#
+        );
+    }
+
+    #[test]
     fn serialize_embedded_enum() {
         use serde_derive::Deserialize;
 

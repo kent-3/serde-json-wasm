@@ -203,6 +203,7 @@ macro_rules! deserialize_unsigned {
         }
     }};
 }
+pub(crate) use deserialize_unsigned;
 
 macro_rules! deserialize_signed {
     ($self:ident, $visitor:ident, $ixx:ident, $visit_ixx:ident) => {{
@@ -245,6 +246,7 @@ macro_rules! deserialize_signed {
         }
     }};
 }
+pub(crate) use deserialize_signed;
 
 impl<'a, 'de> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
@@ -1091,6 +1093,19 @@ mod tests {
                 address: Address("johnny".to_string()),
                 comment: CommentId(9897),
             }
+        );
+    }
+
+    #[test]
+    fn numbered_key_maps() {
+        use std::collections::BTreeMap;
+        let mut ranking: BTreeMap<u64, String> = BTreeMap::new();
+        ranking.insert(1, "Elon".to_string());
+        ranking.insert(2, "Bazos".to_string());
+        
+        assert_eq!(
+            from_str::<BTreeMap<u64, String>>(r#"{"1": "Elon", "2": "Bazos"}"#).unwrap(),
+            ranking
         );
     }
 

@@ -1102,7 +1102,7 @@ mod tests {
         let mut ranking: BTreeMap<u64, String> = BTreeMap::new();
         ranking.insert(1, "Elon".to_string());
         ranking.insert(2, "Bazos".to_string());
-        
+
         assert_eq!(
             from_str::<BTreeMap<u64, String>>(r#"{"1": "Elon", "2": "Bazos"}"#).unwrap(),
             ranking

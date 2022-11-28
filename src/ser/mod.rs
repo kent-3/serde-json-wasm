@@ -6,9 +6,11 @@ use serde::ser;
 
 use std::vec::Vec;
 
+use self::map::SerializeMap;
 use self::seq::SerializeSeq;
 use self::struct_::SerializeStruct;
 
+mod map;
 mod seq;
 mod struct_;
 
@@ -97,6 +99,8 @@ macro_rules! serialize_unsigned {
         Ok(())
     }};
 }
+// Export for use in map
+pub(crate) use serialize_unsigned;
 
 macro_rules! serialize_signed {
     ($self:ident, $N:expr, $v:expr, $ixx:ident, $uxx:ident) => {{
@@ -131,6 +135,8 @@ macro_rules! serialize_signed {
         Ok(())
     }};
 }
+// Export for use in map
+pub(crate) use serialize_signed;
 
 /// Upper-case hex for value in 0..16, encoded as ASCII bytes
 fn hex_4bit(c: u8) -> u8 {
@@ -153,7 +159,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeTuple = SerializeSeq<'a>;
     type SerializeTupleStruct = Unreachable;
     type SerializeTupleVariant = SerializeSeq<'a>;
-    type SerializeMap = Unreachable;
+    type SerializeMap = SerializeMap<'a>;
     type SerializeStruct = SerializeStruct<'a>;
     type SerializeStructVariant = SerializeStruct<'a>;
 
@@ -400,7 +406,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        unreachable!()
+        self.buf.push(b'{');
+        Ok(SerializeMap::new(self))
     }
 
     fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
@@ -530,6 +537,7 @@ impl ser::SerializeStructVariant for Unreachable {
 
 #[cfg(test)]
 mod tests {
+
     use super::to_string;
     use serde_derive::Serialize;
 
@@ -979,10 +987,238 @@ mod tests {
         );
     }
 
-    use serde_derive::Deserialize;
+    #[test]
+    fn btree_map() {
+        use std::collections::BTreeMap;
+
+        // empty map
+        assert_eq!(to_string(&BTreeMap::<(), ()>::new()).unwrap(), r#"{}"#);
+
+        // One element with unit type
+        let mut map = BTreeMap::<&str, ()>::new();
+        map.insert("set_element", ());
+        assert_eq!(to_string(&map).unwrap(), r#"{"set_element":null}"#);
+
+        let mut two_values = BTreeMap::new();
+        two_values.insert("my_name", "joseph");
+        two_values.insert("her_name", "aline");
+        assert_eq!(
+            to_string(&two_values).unwrap(),
+            r#"{"her_name":"aline","my_name":"joseph"}"#
+        );
+
+        let mut nested_map = BTreeMap::new();
+        nested_map.insert("two_entries", two_values.clone());
+
+        two_values.remove("my_name");
+        nested_map.insert("one_entry", two_values);
+        assert_eq!(
+            to_string(&nested_map).unwrap(),
+            r#"{"one_entry":{"her_name":"aline"},"two_entries":{"her_name":"aline","my_name":"joseph"}}"#
+        );
+    }
+
+    #[test]
+    fn hash_map() {
+        use std::collections::HashMap;
+
+        // empty map
+        assert_eq!(to_string(&HashMap::<(), ()>::new()).unwrap(), r#"{}"#);
+
+        // One element
+        let mut map = HashMap::new();
+        map.insert("my_age", 28);
+        assert_eq!(to_string(&map).unwrap(), r#"{"my_age":28}"#);
+
+        #[derive(Debug, Serialize, PartialEq, Eq, Hash)]
+        pub struct NewType(String);
+
+        // New type wrappers around String types work as keys
+        let mut map = HashMap::new();
+        map.insert(NewType(String::from("my_age")), 44);
+        assert_eq!(to_string(&map).unwrap(), r#"{"my_age":44}"#);
+
+        #[derive(Debug, Serialize, PartialEq, Eq, Hash)]
+        #[serde(rename_all = "lowercase")]
+        pub enum MyResult {
+            Err,
+        }
+
+        // Unit variants are also valid keys
+        let mut map = HashMap::new();
+        map.insert(MyResult::Err, 404);
+        assert_eq!(to_string(&map).unwrap(), r#"{"err":404}"#);
+
+        // HashMap does not have deterministic iteration order (except in the Wasm target).
+        // So the two element map is serialized as one of two options.
+        let mut two_values = HashMap::new();
+        two_values.insert("my_name", "joseph");
+        two_values.insert("her_name", "aline");
+        let serialized = to_string(&two_values).unwrap();
+        assert!(
+            serialized == r#"{"her_name":"aline","my_name":"joseph"}"#
+                || serialized == r#"{"my_name":"joseph","her_name":"aline"}"#
+        );
+    }
+
+    #[test]
+    fn map_serialization_matches_json_serde() {
+        use std::collections::BTreeMap;
+
+        fn ser_actual<T: serde::Serialize + ?Sized>(value: &T) -> String {
+            to_string(value).unwrap()
+        }
+
+        fn ser_expected<T: serde::Serialize + ?Sized>(value: &T) -> String {
+            serde_json::to_string(value).unwrap()
+        }
+
+        let map = BTreeMap::<(), ()>::new();
+        assert_eq!(ser_actual(&map), ser_expected(&map));
+
+        let mut two_values = BTreeMap::new();
+        two_values.insert("my_name", "joseph");
+        two_values.insert("her_name", "aline");
+        assert_eq!(ser_actual(&two_values), ser_expected(&two_values));
+
+        let mut nested_map = BTreeMap::new();
+        nested_map.insert("two_entries", two_values.clone());
+        two_values.remove("my_name");
+        nested_map.insert("one_entry", two_values);
+        assert_eq!(ser_actual(&nested_map), ser_expected(&nested_map));
+
+        // One element with unit type
+        let mut map = BTreeMap::<&str, ()>::new();
+        map.insert("set_element", ());
+        assert_eq!(ser_actual(&map), ser_expected(&map));
+
+        // numeric keys
+        let mut map = BTreeMap::new();
+        map.insert(10i8, "my_age");
+        assert_eq!(ser_actual(&map), ser_expected(&map));
+
+        // numeric values
+        let mut scores = BTreeMap::new();
+        scores.insert("player A", 1234212);
+        assert_eq!(ser_actual(&scores), ser_expected(&scores));
+    }
+
+    #[test]
+    fn number_key() {
+        use std::collections::HashMap;
+
+        // i8 key
+        let mut map = HashMap::new();
+        map.insert(10i8, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // i16 key
+        let mut map = HashMap::new();
+        map.insert(10i16, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // i32 key
+        let mut map = HashMap::new();
+        map.insert(10i32, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // i64 key
+        let mut map = HashMap::new();
+        map.insert(10i64, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // i128 key
+        let mut map = HashMap::new();
+        map.insert(10i128, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // u8 key
+        let mut map = HashMap::new();
+        map.insert(10u8, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // u16 key
+        let mut map = HashMap::new();
+        map.insert(10u16, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // u32 key
+        let mut map = HashMap::new();
+        map.insert(10u32, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // u64 key
+        let mut map = HashMap::new();
+        map.insert(10u64, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+
+        // u128 key
+        let mut map = HashMap::new();
+        map.insert(10u128, "my_age");
+        assert_eq!(to_string(&map).unwrap(), r#"{"10":"my_age"}"#);
+    }
+
+    #[test]
+    fn invalid_json_key() {
+        use crate::ser::map::key_must_be_a_string;
+        use std::collections::HashMap;
+
+        #[derive(Debug, Serialize, PartialEq, Eq, Hash)]
+        #[serde(rename_all = "lowercase")]
+        pub enum MyResult {
+            Unit(()),
+            Ok(Response),
+        }
+        #[derive(Debug, Serialize, PartialEq, Eq, Hash)]
+        pub struct Response {
+            pub log: Option<String>,
+            pub count: i64,
+            pub list: Vec<u32>,
+        }
+
+        // unit enum
+        let mut map = HashMap::new();
+        map.insert(MyResult::Unit(()), "my_age");
+        assert_eq!(
+            to_string(&map).unwrap_err().to_string(),
+            key_must_be_a_string().to_string()
+        );
+
+        // struct enum
+        let mut map = HashMap::new();
+        map.insert(
+            MyResult::Ok(Response {
+                log: None,
+                count: 1,
+                list: vec![6],
+            }),
+            "my_age",
+        );
+        assert_eq!(
+            to_string(&map).unwrap_err().to_string(),
+            key_must_be_a_string().to_string()
+        );
+
+        // Struct
+        let mut map = HashMap::new();
+        map.insert(
+            Response {
+                log: None,
+                count: 1,
+                list: vec![6],
+            },
+            "my_age",
+        );
+        assert_eq!(
+            to_string(&map).unwrap_err().to_string(),
+            key_must_be_a_string().to_string()
+        );
+    }
 
     #[test]
     fn serialize_embedded_enum() {
+        use serde_derive::Deserialize;
+
         #[derive(Debug, Deserialize, Serialize, PartialEq)]
         #[serde(rename_all = "lowercase")]
         pub enum MyResult {

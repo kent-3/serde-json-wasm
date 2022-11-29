@@ -1018,6 +1018,11 @@ mod tests {
             to_string(&users).unwrap(),
             r#"{"users":["joe","alice"],"limit":20,"offset":100,"total":102}"#
         );
+        assert_eq!(
+            to_string(&users).unwrap(),
+            serde_json::to_string(&users).unwrap(),
+            "serialization must match serde_json implementation"
+        );
     }
 
     #[test]

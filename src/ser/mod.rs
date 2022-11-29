@@ -539,7 +539,7 @@ impl ser::SerializeStructVariant for Unreachable {
 mod tests {
 
     use super::to_string;
-    use serde_derive::Serialize;
+    use serde_derive::{Deserialize, Serialize};
 
     #[test]
     fn bool() {
@@ -985,6 +985,38 @@ mod tests {
         assert_eq!(
             to_string(&Tuple { a: true, b: false }).unwrap(),
             r#"{"a":true,"b":false}"#
+        );
+    }
+
+    #[test]
+    fn struct_with_flatten() {
+        #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+        struct Pagination {
+            limit: u64,
+            offset: u64,
+            total: u64,
+        }
+
+        #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+        struct Users {
+            users: Vec<String>,
+
+            #[serde(flatten)]
+            pagination: Pagination,
+        }
+
+        let users = Users {
+            users: vec!["joe".to_string(), "alice".to_string()],
+            pagination: Pagination {
+                offset: 100,
+                limit: 20,
+                total: 102,
+            },
+        };
+
+        assert_eq!(
+            to_string(&users).unwrap(),
+            r#"{"users":["joe","alice"],"limit":20,"offset":100,"total":102}"#
         );
     }
 

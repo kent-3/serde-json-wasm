@@ -428,13 +428,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.buf.push(b':');
         self.serialize_struct(name, len)
     }
-
-    fn collect_str<T: ?Sized>(self, value: &T) -> Result<Self::Ok>
-    where
-        T: fmt::Display,
-    {
-        self.serialize_str(&value.to_string())
-    }
 }
 
 /// Serializes the given data structure as a string of JSON text
@@ -539,6 +532,7 @@ impl ser::SerializeStructVariant for Unreachable {
 mod tests {
 
     use super::to_string;
+    use serde::{Serialize, Serializer};
     use serde_derive::{Deserialize, Serialize};
 
     #[test]
@@ -867,6 +861,32 @@ mod tests {
         assert_eq!(to_string(" \u{000e} ").unwrap(), r#"" \u000E ""#);
         assert_eq!(to_string(" \u{001D} ").unwrap(), r#"" \u001D ""#);
         assert_eq!(to_string(" \u{001f} ").unwrap(), r#"" \u001F ""#);
+    }
+
+    #[test]
+    fn collect_str_can_be_used_in_custom_seralize_impl() {
+        struct SpecialType {
+            count: u32,
+            on: bool,
+        }
+
+        impl Serialize for SpecialType {
+            // A custom Serialize implementation for SpecialType. SpecialType is giving us the chance to use
+            // an efficient collect_str implementation that is better than allocating the String and running
+            // serialize_str on it.
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.collect_str(&format_args!("{}-{}", self.count, self.on))
+            }
+        }
+
+        let value = SpecialType {
+            count: 123,
+            on: false,
+        };
+        assert_eq!(to_string(&value).unwrap(), r#""123-false""#);
     }
 
     #[test]

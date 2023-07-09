@@ -11,6 +11,7 @@ use self::seq::SerializeSeq;
 use self::struct_::SerializeStruct;
 
 mod map;
+pub mod pretty;
 mod seq;
 mod struct_;
 

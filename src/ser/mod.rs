@@ -11,9 +11,11 @@ use self::seq::SerializeSeq;
 use self::struct_::SerializeStruct;
 
 mod map;
-pub mod pretty;
+mod pretty;
 mod seq;
 mod struct_;
+
+pub use pretty::{to_string_pretty, to_vec_pretty};
 
 /// Serialization result
 pub type Result<T> = ::core::result::Result<T, Error>;
